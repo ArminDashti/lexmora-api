@@ -1,0 +1,11 @@
+.git
+.gitignore
+.cursor
+.deploy
+**/.git
+**/.cursor
+**/node_modules
+**/dist
+**/.deploy
+docs
+.env
