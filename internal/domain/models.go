@@ -34,8 +34,10 @@ const (
 	HistoryTypeFaEn     HistoryType = "fa_en"
 	HistoryTypeTermEn   HistoryType = "term_en"
 	HistoryTypeTermFa   HistoryType = "term_fa"
-	HistoryTypeRefine   HistoryType = "refine"
-	HistoryTypeSymptoms HistoryType = "symptoms"
+	HistoryTypeRefine     HistoryType = "refine"
+	HistoryTypeSymptoms   HistoryType = "symptoms"
+	HistoryTypeCompareEn  HistoryType = "compare_en"
+	HistoryTypeCompareFa  HistoryType = "compare_fa"
 )
 
 func (t HistoryType) DisplayName() string {
@@ -54,6 +56,10 @@ func (t HistoryType) DisplayName() string {
 		return "Refine"
 	case HistoryTypeSymptoms:
 		return "Symptoms"
+	case HistoryTypeCompareEn:
+		return "Compare EN"
+	case HistoryTypeCompareFa:
+		return "Compare FA"
 	default:
 		return string(t)
 	}
@@ -79,6 +85,7 @@ type StatsBucket struct {
 	Term      int `json:"term"`
 	Refine    int `json:"refine"`
 	Symptoms  int `json:"symptoms"`
+	Compare   int `json:"compare"`
 	Total     int `json:"total"`
 }
 
@@ -129,6 +136,8 @@ var InstructionKeys = []string{
 	"term-for-everyday",
 	"term-for-formal",
 	"term-for-slang",
+	"compare-en",
+	"compare-fa",
 }
 
 func FormatDateTime(t time.Time) string {

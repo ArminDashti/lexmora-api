@@ -7,9 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/ArminDashti/translator-api/internal/domain"
-	"github.com/ArminDashti/translator-api/internal/repository"
-	"github.com/ArminDashti/translator-api/internal/service"
+	"github.com/ArminDashti/lexmora-api/internal/domain"
+	"github.com/ArminDashti/lexmora-api/internal/repository"
+	"github.com/ArminDashti/lexmora-api/internal/service"
 )
 
 type Handler struct {

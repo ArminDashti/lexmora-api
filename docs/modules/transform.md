@@ -14,6 +14,7 @@ Maps UI operation selections to instruction keys, calls OpenRouter, and saves hi
 | term | en/fa + style | Term EN / Term FA |
 | refine | style | Refine |
 | symptoms | — | Symptoms |
+| compare | text1 + text2 + language | Compare EN / Compare FA |
 
 ## Dependencies
 

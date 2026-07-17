@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/ArminDashti/translator-api/internal/domain"
+	"github.com/ArminDashti/lexmora-api/internal/domain"
 )
 
 type HistoryRepository struct {
@@ -149,7 +149,7 @@ func (r *HistoryRepository) CountByPeriod(ctx context.Context, since, until *tim
 		}
 		addToBucket(&bucket, row.Type, row.Count)
 	}
-	bucket.Total = bucket.Simplify + bucket.EnFa + bucket.FaEn + bucket.Term + bucket.Refine + bucket.Symptoms
+	bucket.Total = bucket.Simplify + bucket.EnFa + bucket.FaEn + bucket.Term + bucket.Refine + bucket.Symptoms + bucket.Compare
 	return bucket, rows.Err()
 }
 
@@ -167,6 +167,8 @@ func addToBucket(b *domain.StatsBucket, t domain.HistoryType, count int) {
 		b.Refine += count
 	case domain.HistoryTypeSymptoms:
 		b.Symptoms += count
+	case domain.HistoryTypeCompareEn, domain.HistoryTypeCompareFa:
+		b.Compare += count
 	}
 }
 

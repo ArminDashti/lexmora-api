@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ArminDashti/translator-api/internal/domain"
+	"github.com/ArminDashti/lexmora-api/internal/domain"
 )
 
 func (h *Handler) ListInstructions(c *gin.Context) {

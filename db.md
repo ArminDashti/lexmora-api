@@ -1,14 +1,14 @@
 # Database Schema
 
-PostgreSQL database for the Translator app. Migrations live in `migrations/`.
+PostgreSQL database for the Lexmora app. Migrations live in `migrations/`.
 
 ## Overview
 
 | Item | Value |
 |------|-------|
 | Engine | PostgreSQL 16 |
-| Database | `translator` |
-| Migrations | `001_init`, `002_app_v2` |
+| Database | `lexmora` |
+| Migrations | `001_init`, `002_app_v2`, `003_compare` |
 
 ## Tables
 
@@ -72,6 +72,8 @@ Stored transform results.
 | term_fa | Persian term lookup |
 | refine | Refine tone/style |
 | symptoms | Symptoms operation |
+| compare_en | Compare two words (English explanation) |
+| compare_fa | Compare two words (Persian explanation) |
 
 ## Indexes
 

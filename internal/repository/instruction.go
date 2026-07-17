@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/ArminDashti/translator-api/internal/domain"
+	"github.com/ArminDashti/lexmora-api/internal/domain"
 )
 
 type InstructionRepository struct {

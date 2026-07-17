@@ -1,8 +1,8 @@
-# Translator API
+# Lexmora API
 
-Go REST API for the Translator app: AI-powered English ↔ Persian transforms via OpenRouter, with JWT auth, history, instructions, stats, and settings.
+Go REST API for the Lexmora app: AI-powered English ↔ Persian transforms via OpenRouter, with JWT auth, history, instructions, stats, and settings.
 
-Companion frontend: [translator-webui](https://github.com/ArminDashti/translator-webui)
+Companion frontend: [lexmora-webui](https://github.com/ArminDashti/lexmora-webui)
 
 ## Stack
 
@@ -28,7 +28,7 @@ cp .env.example .env
 3. Start PostgreSQL and API:
 
 ```bash
-docker network create translator-net 2>/dev/null || true
+docker network create lexmora-net 2>/dev/null || true
 docker compose up -d
 ```
 
@@ -43,14 +43,14 @@ API listens on [http://localhost:8080](http://localhost:8080).
 
 ### Development with the web UI
 
-Run this API on port 8080, then start the web UI dev server from the `translator-webui` repo (`npm run dev` on port 5173). Set `CORS_ORIGINS` to include the Vite origin if needed.
+Run this API on port 8080, then start the web UI dev server from the `lexmora-webui` repo (`npm run dev` on port 5173). Set `CORS_ORIGINS` to include the Vite origin if needed.
 
 ## Default login
 
 | Field    | Value            |
 |----------|------------------|
 | Username | `armin`          |
-| Password | `Translator@2024` |
+| Password | `Lexmora@2024` |
 
 Override via `DEFAULT_USERNAME` and `DEFAULT_PASSWORD` in `.env` (only used on first boot when no users exist).
 
@@ -108,8 +108,8 @@ instructions/         Reference prompt templates
 Build and run API + PostgreSQL:
 
 ```bash
-docker network create translator-net
+docker network create lexmora-net
 docker compose up -d --build
 ```
 
-The web UI container (separate repo) should join the same `translator-net` network and proxy `/api` to the `translator-api` service hostname.
+The web UI container (separate repo) should join the same `lexmora-net` network and proxy `/api` to the `lexmora-api` service hostname.

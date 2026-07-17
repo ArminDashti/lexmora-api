@@ -1,21 +1,19 @@
+name: lexmora
+
 services:
-  postgres:
+  lexmora-pgsql:
     image: postgres:16
-    container_name: translator-postgres
+    container_name: lexmora-pgsql
     environment:
       POSTGRES_USER: translator
       POSTGRES_PASSWORD: translator
       POSTGRES_DB: translator
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - lexmora-pgsql-vol:/var/lib/postgresql/data
     expose:
       - "5432"
-    ports:
-      - target: 5432
-        published: ${POSTGRES_PUBLISH_PORT-5432}
-        protocol: tcp
     networks:
-      - translator-net
+      - t3-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U translator -d translator"]
       interval: 5s
@@ -23,12 +21,12 @@ services:
       retries: 5
     restart: unless-stopped
 
-  api:
+  lexmora-api:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ${API_IMAGE_TAG:-translator-api:latest}
-    container_name: ${API_CONTAINER_NAME:-translator-api}
+    image: ${API_IMAGE_TAG:-lexmora-api:latest}
+    container_name: lexmora-api
     expose:
       - "8080"
     ports:
@@ -38,21 +36,26 @@ services:
     environment:
       PORT: "8080"
       JWT_SECRET: ${JWT_SECRET:-change-me-docker-dev-only}
-      DATABASE_URL: postgres://translator:translator@postgres:5432/translator?sslmode=disable
+      DATABASE_URL: postgres://translator:translator@lexmora-pgsql:5432/translator?sslmode=disable
       DEFAULT_USERNAME: ${DEFAULT_USERNAME:-armin}
       DEFAULT_PASSWORD: ${DEFAULT_PASSWORD:-Translator@2024}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:8082,http://127.0.0.1:8082}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,https://lexmora.xaigrok.ir}
+    volumes:
+      - lexmora-api-vol:/data
     networks:
-      - translator-net
+      - t3-net
     depends_on:
-      postgres:
+      lexmora-pgsql:
         condition: service_healthy
     restart: unless-stopped
 
 networks:
-  translator-net:
-    name: ${DOCKER_NETWORK:-translator-net}
+  t3-net:
+    name: ${DOCKER_NETWORK:-t3-net}
     external: true
 
 volumes:
-  postgres_data:
+  lexmora-pgsql-vol:
+    name: lexmora-pgsql-vol
+  lexmora-api-vol:
+    name: lexmora-api-vol

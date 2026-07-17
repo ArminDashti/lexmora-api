@@ -9,8 +9,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
-	"github.com/ArminDashti/translator-api/internal/domain"
-	"github.com/ArminDashti/translator-api/internal/repository"
+	"github.com/ArminDashti/lexmora-api/internal/domain"
+	"github.com/ArminDashti/lexmora-api/internal/repository"
 )
 
 var ErrInvalidCredentials = errors.New("invalid username or password")

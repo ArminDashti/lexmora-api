@@ -1,4 +1,4 @@
-module github.com/ArminDashti/translator-api
+module github.com/ArminDashti/lexmora-api
 
 go 1.22.0
 

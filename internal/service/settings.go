@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/ArminDashti/translator-api/internal/domain"
-	"github.com/ArminDashti/translator-api/internal/repository"
+	"github.com/ArminDashti/lexmora-api/internal/domain"
+	"github.com/ArminDashti/lexmora-api/internal/repository"
 )
 
 type SettingsService struct {

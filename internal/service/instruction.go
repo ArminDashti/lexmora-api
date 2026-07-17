@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ArminDashti/translator-api/internal/domain"
-	"github.com/ArminDashti/translator-api/internal/repository"
+	"github.com/ArminDashti/lexmora-api/internal/domain"
+	"github.com/ArminDashti/lexmora-api/internal/repository"
 )
 
 type InstructionService struct {
@@ -77,6 +77,10 @@ func defaultInstructionContent(key string) string {
 		return base + "\n\nGiven a description, return the best matching formal word or short phrase."
 	case "term-for-slang":
 		return base + "\n\nGiven a description, return the best matching slang word or short phrase."
+	case "compare-en":
+		return "Compare the two given English words or phrases. Explain the difference in meaning, nuance, and typical usage. Include short example sentences for each. Respond in clear English. No markdown headings."
+	case "compare-fa":
+		return "دو واژه یا عبارت انگلیسی داده‌شده را با هم مقایسه کن. تفاوت معنا، ظرافت معنایی و کاربرد معمول را توضیح بده و برای هر کدام یک مثال کوتاه بیاور. پاسخ را به فارسی روان بنویس. بدون عنوان‌های مارک‌داون."
 	default:
 		return base
 	}

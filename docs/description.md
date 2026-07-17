@@ -1,8 +1,8 @@
-# Translator API
+# Lexmora API
 
-REST API for the Translator app. Users authenticate with JWT, run transform operations (translate, simplify, term lookup, refine, symptoms) via OpenRouter, and manage history, instructions, stats, and settings.
+REST API for the Lexmora app. Users authenticate with JWT, run transform operations (translate, simplify, term lookup, refine, symptoms, compare) via OpenRouter, and manage history, instructions, stats, and settings.
 
-The Vue web UI lives in the separate [translator-webui](https://github.com/ArminDashti/translator-webui) repository.
+The Vue web UI lives in the separate [lexmora-webui](https://github.com/ArminDashti/lexmora-webui) repository.
 
 ## Tech stack
 
@@ -15,12 +15,19 @@ The Vue web UI lives in the separate [translator-webui](https://github.com/Armin
 
 ### Docker
 
+```powershell
+.\run-on-docker.ps1 --help
+.\run-on-docker.ps1
+```
+
+Or manually:
+
 ```bash
-docker network create translator-net
+docker network create lexmora-net
 docker compose up -d --build
 ```
 
-API: http://localhost:8080
+API: http://localhost:8080 (or the `--internal-port` from `run-on-docker.ps1`)
 
 ### Local development
 
@@ -28,6 +35,6 @@ API: http://localhost:8080
 2. `cp .env.example .env` and set `JWT_SECRET`
 3. `go run ./cmd/server` → http://localhost:8080
 
-Pair with the web UI dev server from `translator-webui` (`npm run dev` on port 5173).
+Pair with the web UI dev server from `lexmora-webui` (`npm run dev` on port 5173).
 
-Default login: `armin` / `Translator@2024`
+Default login: `armin` / `Lexmora@2024`

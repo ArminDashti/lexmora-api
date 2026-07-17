@@ -7,13 +7,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ArminDashti/translator-api/internal/domain"
-	"github.com/ArminDashti/translator-api/internal/repository"
+	"github.com/ArminDashti/lexmora-api/internal/domain"
+	"github.com/ArminDashti/lexmora-api/internal/repository"
 )
 
 type TransformRequest struct {
 	Operation string `json:"operation"`
 	Text      string `json:"text"`
+	Text1     string `json:"text1"`
+	Text2     string `json:"text2"`
 	Direction string `json:"direction"`
 	Mode      string `json:"mode"`
 	MovieName string `json:"movie_name"`
@@ -43,12 +45,23 @@ func NewTransformService(
 }
 
 func (s *TransformService) Transform(ctx context.Context, req TransformRequest) (*domain.TransformResult, error) {
-	text := strings.TrimSpace(req.Text)
-	if text == "" {
-		return nil, fmt.Errorf("text is required")
+	op := strings.ToLower(strings.TrimSpace(req.Operation))
+	var inputText string
+	if op == "compare" {
+		text1 := strings.TrimSpace(req.Text1)
+		text2 := strings.TrimSpace(req.Text2)
+		if text1 == "" || text2 == "" {
+			return nil, fmt.Errorf("text1 and text2 are required")
+		}
+		inputText = text1 + " vs " + text2
+	} else {
+		inputText = strings.TrimSpace(req.Text)
+		if inputText == "" {
+			return nil, fmt.Errorf("text is required")
+		}
 	}
 
-	historyType, instructionKey, userText, metadata, err := s.resolveTransform(req, text)
+	historyType, instructionKey, userText, metadata, err := s.resolveTransform(req, inputText)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +83,7 @@ func (s *TransformService) Transform(ctx context.Context, req TransformRequest) 
 
 	record := domain.HistoryRecord{
 		Type:           historyType,
-		InputText:      text,
+		InputText:      inputText,
 		ResultText:     result,
 		Model:          settings.ModelName,
 		InstructionKey: instructionKey,
@@ -156,6 +169,23 @@ func (s *TransformService) resolveTransform(req TransformRequest, text string) (
 
 	case "symptoms":
 		return domain.HistoryTypeSymptoms, "symptoms", text, metadata, nil
+
+	case "compare":
+		lang := strings.ToLower(strings.TrimSpace(req.Language))
+		text1 := strings.TrimSpace(req.Text1)
+		text2 := strings.TrimSpace(req.Text2)
+		metadata["text1"] = text1
+		metadata["text2"] = text2
+		metadata["language"] = lang
+		userMsg := fmt.Sprintf("Compare these two words or phrases:\n\n1: %s\n2: %s", text1, text2)
+		switch lang {
+		case "en":
+			return domain.HistoryTypeCompareEn, "compare-en", userMsg, metadata, nil
+		case "fa":
+			return domain.HistoryTypeCompareFa, "compare-fa", userMsg, metadata, nil
+		default:
+			return "", "", "", nil, fmt.Errorf("invalid compare language: %s", req.Language)
+		}
 
 	default:
 		return "", "", "", nil, fmt.Errorf("invalid operation: %s", req.Operation)

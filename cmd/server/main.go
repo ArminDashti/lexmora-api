@@ -11,12 +11,12 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/ArminDashti/translator-api/internal/config"
-	"github.com/ArminDashti/translator-api/internal/db"
-	"github.com/ArminDashti/translator-api/internal/handler"
-	"github.com/ArminDashti/translator-api/internal/middleware"
-	"github.com/ArminDashti/translator-api/internal/repository"
-	"github.com/ArminDashti/translator-api/internal/service"
+	"github.com/ArminDashti/lexmora-api/internal/config"
+	"github.com/ArminDashti/lexmora-api/internal/db"
+	"github.com/ArminDashti/lexmora-api/internal/handler"
+	"github.com/ArminDashti/lexmora-api/internal/middleware"
+	"github.com/ArminDashti/lexmora-api/internal/repository"
+	"github.com/ArminDashti/lexmora-api/internal/service"
 )
 
 func main() {
