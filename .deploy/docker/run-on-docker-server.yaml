@@ -1,0 +1,29 @@
+# Remote Docker deploy settings.
+# No CLI flags — edit this file only.
+# Fill in ssh and ssh_key before running (placeholders are rejected at runtime).
+#
+# ssh formats:
+#   ssh <alias>                         # SSH config Host alias (uses ssh_key)
+#   server-address@username@password    # direct password login (ssh_key optional)
+
+stack_name: lexmora
+image_tag: lexmora-api:latest
+compose_file: docker-compose.yml
+docker_network: t3-net
+remote_work_dir: /cloud-admin/docker/lexmora
+api_publish_port: ""
+delete_volume: "no"
+delete_image: "no"
+
+ssh: "ssh <alias>"
+ssh_key: "<path-to-private-key>"
+
+jwt_secret: change-me-docker-dev-only
+cors_origins: "https://lexmora.xaigrok.ir"
+default_username: armin
+default_password: Translator@2024
+
+# Files synced from .deploy/docker to remote_work_dir (image already holds the binary).
+sync_items:
+  - Dockerfile
+  - docker-compose.yml
