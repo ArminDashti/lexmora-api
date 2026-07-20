@@ -47,9 +47,14 @@ try {
     if ([string]::IsNullOrWhiteSpace($workDir)) { throw 'remote_work_dir is required in run-on-docker-server.yaml.' }
 
     $composeFile = Join-Path $deployDir $composeFileName
+    $publishComposeFile = Join-Path $deployDir 'docker-compose.publish.yml'
     $dockerfile = Join-Path $deployDir 'Dockerfile'
     if (-not (Test-Path -LiteralPath $composeFile)) { throw "Compose file not found: $composeFile" }
     if (-not (Test-Path -LiteralPath $dockerfile)) { throw "Dockerfile not found: $dockerfile" }
+    $usePublishOverlay = -not [string]::IsNullOrWhiteSpace($publishPort)
+    if ($usePublishOverlay -and -not (Test-Path -LiteralPath $publishComposeFile)) {
+        throw "Publish compose file not found: $publishComposeFile"
+    }
 
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         throw 'Docker CLI is not available. Start Docker Desktop / daemon.'
@@ -93,6 +98,14 @@ try {
     $user = Get-ConfigString -Config $config -Key 'default_username' -Default ''
     $pass = Get-ConfigString -Config $config -Key 'default_password' -Default ''
 
+    $publishComposeFileName = 'docker-compose.publish.yml'
+    $composeFilesArg = if ($usePublishOverlay) {
+        "-f $composeFileName -f $publishComposeFileName"
+    }
+    else {
+        "-f $composeFileName"
+    }
+
     $remoteScript = @"
 set -e
 cd '$workDir'
@@ -104,9 +117,9 @@ export CORS_ORIGINS='$cors'
 export DEFAULT_USERNAME='$user'
 export DEFAULT_PASSWORD='$pass'
 docker network inspect '$dockerNetwork' >/dev/null 2>&1 || docker network create '$dockerNetwork'
-docker compose -p $stackName -f $composeFileName down --remove-orphans$downFlag 2>/dev/null || true
+docker compose -p $stackName $composeFilesArg down --remove-orphans$downFlag 2>/dev/null || true
 $rmiCmd
-docker compose -p $stackName -f $composeFileName up -d
+docker compose -p $stackName $composeFilesArg up -d
 echo REMOTE_OK
 "@
 

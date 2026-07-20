@@ -11,4 +11,4 @@ delete_image: "no"
 jwt_secret: change-me-docker-dev-only
 cors_origins: "http://localhost:5173,http://127.0.0.1:5173,https://lexmora.xaigrok.ir"
 default_username: armin
-default_password: Translator@2024
+default_password: Lexmora@2024

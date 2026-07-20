@@ -12,9 +12,9 @@ lexmora-api/
 ├── instructions/                   # Reference prompt templates
 ├── docs/                           # Project documentation
 ├── growth-log/                     # Evolving architecture and feature notes
-├── Dockerfile                      # API Docker image
-├── docker-compose.yml              # postgres + api services
-├── run-on-docker.ps1               # Local/remote Docker deploy script
+├── .deploy/docker/                 # Dockerfile, compose, deploy scripts + YAML
+├── run-on-docker-local.ps1         # Stub → .deploy/docker/
+├── run-on-docker-server.ps1        # Stub → .deploy/docker/
 ├── .docker/stack.manifest.json     # Docker image tags and ports
 ├── go.mod                          # Go module definition
 ├── db.md                           # PostgreSQL table and enum reference

@@ -25,17 +25,19 @@ cp .env.example .env
 
 2. Edit `.env` — set `JWT_SECRET` to a long random string.
 
-3. Start PostgreSQL and API:
+3. Start PostgreSQL and API with Docker:
 
-```bash
-docker network create lexmora-net 2>/dev/null || true
-docker compose up -d
+```powershell
+.\run-on-docker-local.ps1
 ```
+
+Settings live in `.deploy/docker/run-on-docker-local.yaml` (no CLI flags). See [docs/modules/docker.md](docs/modules/docker.md).
 
 Or run PostgreSQL only and start the API locally:
 
-```bash
-docker compose up -d postgres
+```powershell
+docker network create t3-net 2>$null
+docker compose -f .deploy/docker/docker-compose.yml up -d lexmora-pgsql
 go run ./cmd/server
 ```
 
