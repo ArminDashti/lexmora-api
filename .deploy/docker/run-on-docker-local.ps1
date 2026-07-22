@@ -32,9 +32,14 @@ try {
     if ([string]::IsNullOrWhiteSpace($dockerNetwork)) { throw 'docker_network is required in run-on-docker-local.yaml.' }
 
     $composeFile = Join-Path $deployDir $composeFileName
+    $publishComposeFile = Join-Path $deployDir 'docker-compose.publish.yml'
     $dockerfile = Join-Path $deployDir 'Dockerfile'
     if (-not (Test-Path -LiteralPath $composeFile)) { throw "Compose file not found: $composeFile" }
     if (-not (Test-Path -LiteralPath $dockerfile)) { throw "Dockerfile not found: $dockerfile" }
+    $usePublishOverlay = -not [string]::IsNullOrWhiteSpace($publishPort)
+    if ($usePublishOverlay -and -not (Test-Path -LiteralPath $publishComposeFile)) {
+        throw "Publish compose file not found: $publishComposeFile"
+    }
 
     Write-Host "Running local Docker stack '$stackName' (image: $imageTag)..." -ForegroundColor Cyan
     Write-Host "  deploy:  $deployDir" -ForegroundColor DarkGray
@@ -63,6 +68,7 @@ try {
     Push-Location $projectRoot
     try {
         $composeArgs = @('-p', $stackName, '-f', $composeFile)
+        if ($usePublishOverlay) { $composeArgs += @('-f', $publishComposeFile) }
         $downArgs = @('compose') + $composeArgs + @('down', '--remove-orphans')
         if ($removeVolumes) { $downArgs += '-v' }
         & docker @downArgs 2>$null | Out-Null

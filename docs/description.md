@@ -16,22 +16,16 @@ The Vue web UI lives in the separate [lexmora-webui](https://github.com/ArminDas
 ### Docker
 
 ```powershell
-.\run-on-docker.ps1 --help
-.\run-on-docker.ps1
+.\run-on-docker-local.ps1
 ```
 
-Or manually:
+Settings: `.deploy/docker/run-on-docker-local.yaml`. Remote deploy: `.\run-on-docker-server.ps1` (fill `ssh` / `ssh_key` first).
 
-```bash
-docker network create lexmora-net
-docker compose up -d --build
-```
-
-API: http://localhost:8080 (or the `--internal-port` from `run-on-docker.ps1`)
+API: http://localhost:8080
 
 ### Local development
 
-1. `docker compose up -d postgres`
+1. `.\run-on-docker-local.ps1` (or Postgres only via compose in `.deploy/docker/`)
 2. `cp .env.example .env` and set `JWT_SECRET`
 3. `go run ./cmd/server` → http://localhost:8080
 

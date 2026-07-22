@@ -21,9 +21,10 @@ ssh_key: "<path-to-private-key>"
 jwt_secret: change-me-docker-dev-only
 cors_origins: "https://lexmora.xaigrok.ir"
 default_username: armin
-default_password: Translator@2024
+default_password: Lexmora@2024
 
 # Files synced from .deploy/docker to remote_work_dir (image already holds the binary).
 sync_items:
   - Dockerfile
   - docker-compose.yml
+  - docker-compose.publish.yml
