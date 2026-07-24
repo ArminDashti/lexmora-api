@@ -27,13 +27,17 @@ services:
     container_name: lexmora-api
     expose:
       - "8080"
+    ports:
+      - target: 8080
+        published: ${API_PUBLISH_PORT-8080}
+        protocol: tcp
     environment:
       PORT: "8080"
       JWT_SECRET: ${JWT_SECRET:-change-me-docker-dev-only}
       DATABASE_URL: postgres://translator:translator@lexmora-pgsql:5432/translator?sslmode=disable
       DEFAULT_USERNAME: ${DEFAULT_USERNAME:-armin}
       DEFAULT_PASSWORD: ${DEFAULT_PASSWORD:-Lexmora@2024}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,https://lexmora.xaigrok.ir}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:8082,http://127.0.0.1:8082,https://lexmora.xaigrok.ir}
     volumes:
       - lexmora-api-vol:/data
     networks:

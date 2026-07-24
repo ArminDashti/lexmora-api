@@ -19,7 +19,7 @@ The Vue web UI lives in the separate [lexmora-webui](https://github.com/ArminDas
 .\run-on-docker-local.ps1
 ```
 
-Settings: `.deploy/docker/run-on-docker-local.yaml`. Remote deploy: `.\run-on-docker-server.ps1` (fill `ssh` / `ssh_key` first).
+Settings: `.armin/docker-scripts/run-on-docker-local.yaml`. Remote: `.\run-on-docker-server.ps1` (fill `ssh` first). Dockerfile/compose live under `.deploy/docker/`.
 
 API: http://localhost:8080
 

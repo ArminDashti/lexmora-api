@@ -3,7 +3,7 @@
   Deploy stack to a remote host over SSH using sibling YAML only.
 
 .DESCRIPTION
-  Sample for .armin/docker-scripts/run-on-docker-server.ps1.
+  Remote deploy script for .armin/docker-scripts/run-on-docker-server.yaml.
   Reads run-on-docker-server.yaml — no CLI -- flags.
   Flow when build_image_on is local: build locally → docker save → SCP → remote docker load → sync files → remote compose up -d.
   Flow when build_image_on is server: sync repo to remote → remote docker build → remote compose up -d.
@@ -12,7 +12,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $DeployDir = $PSScriptRoot
-$RepoRoot = (Resolve-Path (Join-Path $DeployDir '../..')).Path
+$RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $DeployDir '../..'))
 $ConfigPath = Join-Path $DeployDir 'run-on-docker-server.yaml'
 
 function Write-Step([string]$Message) {
@@ -52,7 +52,7 @@ CONFIG:
 
 NOTES:
   - No CLI -- flags. Change behavior only via YAML.
-  - Non-empty override fields replace compose / Dockerfile values via env vars.
+  - Sets API_IMAGE_TAG / API_PUBLISH_PORT / DOCKER_NETWORK for this repo's compose.
   - Alias mode uses ~/.ssh/config (no ssh_key field).
   - Rejects placeholder ssh values at runtime.
   - Never prints the password segment of host@user@password.
@@ -115,11 +115,12 @@ function Get-RepoRelativePath([string]$AbsolutePath) {
 
 function Build-ComposeEnvPrefix([hashtable]$Cfg, [string]$PublishPort) {
     $pairs = New-Object System.Collections.Generic.List[string]
+    # Always set so empty publish_port clears compose default (${API_PUBLISH_PORT-8080}).
     $escapedPublish = $PublishPort.Replace("'", "'\\''")
-    [void]$pairs.Add("PUBLISH_PORT='$escapedPublish'")
+    [void]$pairs.Add("API_PUBLISH_PORT='$escapedPublish'")
 
     $mapping = @{
-        image_tag       = 'IMAGE_TAG'
+        image_tag       = 'API_IMAGE_TAG'
         docker_network  = 'DOCKER_NETWORK'
         internal_port   = 'INTERNAL_PORT'
     }
@@ -283,6 +284,8 @@ try {
     Write-Step "Ensuring remote volume dir $volumeDir"
     Invoke-Remote -Target $target -RemoteCommand "mkdir -p '$volumeDir'"
 
+    $remoteTar = $null
+
     if ($buildImageOn -eq 'server') {
         Write-Step "Syncing repo to $volumeDir for remote build"
         Copy-DirToRemote -Target $target -LocalDir $RepoRoot -RemoteDir $volumeDir
@@ -303,8 +306,7 @@ try {
         $remoteTar = "/tmp/$tarName"
         Write-Step "Uploading image to $($target.LogTarget)"
         Copy-ToRemote -Target $target -LocalPath $tarPath -RemotePath $remoteTar
-        Invoke-Remote -Target $target -RemoteCommand "docker load -i $remoteTar && rm -f $remoteTar"
-        Write-Ok 'Image loaded on remote'
+        Write-Ok "Image tar uploaded to $remoteTar"
         Remove-Item -LiteralPath $tarPath -Force -ErrorAction SilentlyContinue
 
         $syncItems = @(
@@ -332,10 +334,16 @@ try {
         Invoke-Remote -Target $target -RemoteCommand "docker image rm -f '$imageTag' || true"
     }
 
+    # Load or build AFTER teardown so delete_image cannot wipe the new image.
     if ($buildImageOn -eq 'server') {
         Write-Step "Building $imageTag on remote (dockerfile=$remoteDockerfile context=$volumeDir)"
         Invoke-Remote -Target $target -RemoteCommand "docker build -f '$volumeDir/$remoteDockerfile' -t '$imageTag' '$volumeDir'"
         Write-Ok "Built $imageTag on remote"
+    }
+    elseif ($null -ne $remoteTar) {
+        Write-Step "Loading image on remote from $remoteTar"
+        Invoke-Remote -Target $target -RemoteCommand "docker load -i '$remoteTar' && rm -f '$remoteTar'"
+        Write-Ok 'Image loaded on remote'
     }
 
     Write-Step "Ensuring remote network $network"

@@ -8,13 +8,14 @@ lexmora-api/
 │   ├── middleware/auth.go          # JWT authentication middleware
 │   ├── repository/                 # Postgres data access
 │   └── service/                    # Business logic and OpenRouter client
-├── migrations/                     # SQL up/down migrations (incl. 003_compare)
+├── migrations/                     # SQL up/down migrations
 ├── instructions/                   # Reference prompt templates
 ├── docs/                           # Project documentation
 ├── growth-log/                     # Evolving architecture and feature notes
-├── .deploy/docker/                 # Dockerfile, compose, deploy scripts + YAML
-├── run-on-docker-local.ps1         # Stub → .deploy/docker/
-├── run-on-docker-server.ps1        # Stub → .deploy/docker/
+├── .armin/docker-scripts/          # Primary local/server Docker deploy scripts + YAML
+├── .deploy/docker/                 # Dockerfile, compose, legacy deploy scripts
+├── run-on-docker-local.ps1         # Stub → .armin/docker-scripts/
+├── run-on-docker-server.ps1        # Stub → .armin/docker-scripts/
 ├── .docker/stack.manifest.json     # Docker image tags and ports
 ├── go.mod                          # Go module definition
 ├── db.md                           # PostgreSQL table and enum reference
