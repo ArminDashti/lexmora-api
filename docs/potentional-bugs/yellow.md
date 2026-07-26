@@ -2,7 +2,7 @@
 
 **[Migration 002]** — Fixed: `default_model_id` FK is dropped before `llm_models`. Use `--delete-volume=yes` if a prior failed migration left the DB dirty.
 
-**[CORS]** — API allows `localhost:5173` (Vite dev) and `localhost:8082` (Docker web). Add origins in `cmd/server/main.go` for other hostnames.
+**[CORS]** — Local Docker defaults allow `localhost:5173` (Vite) and `localhost:8082` (web UI). Add other hostnames via `CORS_ORIGINS` / deploy YAML.
 
 **[JWT]** — Tokens expire after 7 days with no refresh flow; user must re-login.
 

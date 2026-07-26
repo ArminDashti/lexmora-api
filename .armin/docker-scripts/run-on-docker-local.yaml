@@ -1,0 +1,11 @@
+# Local deploy settings — scripts read this file only (no CLI -- flags).
+# Non-empty override fields replace values from compose_file / dockerfile.
+
+stack_name: lexmora
+image_tag: lexmora-api:latest
+compose_file: ../../.deploy/docker/docker-compose.yml
+dockerfile: ../../.deploy/docker/Dockerfile
+docker_network: t3-net
+internal_port: ""
+delete_volume: "no"
+delete_image: "no"
