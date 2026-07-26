@@ -24,7 +24,7 @@ API and PostgreSQL run from this repo. The web UI is deployed separately from [l
 | Service | Container | Host port | Notes |
 |---------|-----------|-----------|-------|
 | `lexmora-pgsql` | `lexmora-pgsql` | (internal) | Volume `lexmora-pgsql-vol` |
-| `lexmora-api` | `lexmora-api` | 8080 when `API_PUBLISH_PORT` unset; empty may still get an ephemeral host port | Prefer Docker DNS via HAProxy on `t3-net` |
+| `lexmora-api` | `lexmora-api` | Host bind only via `docker-compose.publish.yml` when `publish_port` is set | HAProxy uses Docker DNS `lexmora-api:8080` on `t3-net` |
 
 Compose override env vars from `.armin` scripts: `API_IMAGE_TAG`, `DOCKER_NETWORK`, `API_PUBLISH_PORT`.
 
@@ -44,13 +44,13 @@ Or:
 
 The script builds the image, ensures external `t3-net`, and runs `docker compose up -d`.
 
-**Default login:** `armin` / `Lexmora@2024` (compose defaults).
+**Default login:** `armin` / `noshabe` (compose defaults).
 
 **CORS:** Local compose / `run-on-docker-local.yaml` defaults include Vite (`5173`), Docker web UI (`8082`), and `https://lexmora.xaigrok.ir`. Override `CORS_ORIGINS` for other hostnames.
 
 ## Remote run (Irancell-T3 / HAProxy)
 
-Target host: SSH alias `t3` (`cloud-admin@2.144.27.74`). Stack dir: `/cloud-admin/docker/lexmora`. Network: external `t3-net` (shared with HAProxy).
+Target host: `ssh t3 -p 80` (`cloud-admin@2.144.27.74`). Stack dir: `/cloud-admin/docker/lexmora`. Network: external `t3-net` (shared with HAProxy).
 
 HAProxy already routes:
 
@@ -59,7 +59,7 @@ HAProxy already routes:
 | `lexmora-api.xaigrok.ir` | `lexmora-api:8080` |
 | `lexmora.xaigrok.ir` | `lexmora-webui:80` |
 
-1. Confirm `.armin/docker-scripts/run-on-docker-server.yaml` (`ssh: "ssh t3"`, `delete_image: "yes"`, empty `publish_port`).
+1. Confirm `.armin/docker-scripts/run-on-docker-server.yaml` (`ssh: "ssh t3 -p 80"`, `delete_image: "yes"`, empty `publish_port`).
 2. Do not put inline `#` comments on the same line as YAML values (flat parser treats them as part of the value).
 3. Run:
 

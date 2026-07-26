@@ -23,6 +23,7 @@
   This script sets env vars expected by your `docker-compose.yml`:
     - API_IMAGE_TAG
     - DOCKER_NETWORK
+    - API_PUBLISH_PORT (when publish_port is set; uses docker-compose.publish.yml)
 #>
 
 Set-StrictMode -Version Latest
@@ -59,13 +60,14 @@ CONFIG:
   compose_file
   dockerfile
   docker_network
+  publish_port        Host bind port; requires docker-compose.publish.yml
   internal_port       Optional (kept for compatibility)
   delete_volume
   delete_image
 
 NOTES:
   - No CLI -- flags. Edit run-on-docker-local.yaml instead.
-  - Sets API_IMAGE_TAG and DOCKER_NETWORK for your docker-compose.yml.
+  - Sets API_IMAGE_TAG, DOCKER_NETWORK, API_PUBLISH_PORT for docker-compose.
 "@ -ForegroundColor Cyan
 }
 
@@ -154,6 +156,7 @@ try {
     $network = Require-Key $cfg 'docker_network'
 
     $internalPort = if ($cfg.ContainsKey('internal_port')) { [string]$cfg['internal_port'] } else { '' }
+    $publishPort = if ($cfg.ContainsKey('publish_port')) { [string]$cfg['publish_port'] } else { '' }
     $deleteVolume = Test-Truthy ($(if ($cfg.ContainsKey('delete_volume')) { [string]$cfg['delete_volume'] } else { 'no' }))
     $deleteImage = Test-Truthy ($(if ($cfg.ContainsKey('delete_image')) { [string]$cfg['delete_image'] } else { 'no' }))
 
@@ -164,8 +167,14 @@ try {
 
     $composePath = Resolve-DeployPath $composeFileRel
     $dockerfile = Resolve-DeployPath $dockerfileRel
+    $composeDir = Split-Path -Parent $composePath
+    $publishComposePath = Join-Path $composeDir 'docker-compose.publish.yml'
+    $usePublishOverlay = -not [string]::IsNullOrWhiteSpace($publishPort)
+    if ($usePublishOverlay -and -not (Test-Path -LiteralPath $publishComposePath)) {
+        throw "publish_port is set but overlay missing: $publishComposePath"
+    }
 
-    Write-Step "Stack=$stackName image=$imageTag network=$network delete_volume=$deleteVolume delete_image=$deleteImage"
+    Write-Step "Stack=$stackName image=$imageTag network=$network publish_port='$publishPort' delete_volume=$deleteVolume delete_image=$deleteImage"
     if (-not [string]::IsNullOrWhiteSpace($internalPort)) {
         Write-Step "internal_port provided but unused by this repo's docker-compose.yml: $internalPort"
     }
@@ -173,13 +182,19 @@ try {
     Ensure-Docker
     Ensure-Network $network
 
+    $composeArgs = @('-p', $stackName, '-f', $composePath)
+    if ($usePublishOverlay) {
+        $composeArgs += @('-f', $publishComposePath)
+    }
+    $composeArgs += @('--project-directory', $RepoRoot)
+
     if ($deleteVolume -or $deleteImage) {
         Write-Step 'Stopping existing stack'
         if ($deleteVolume) {
-            docker compose -p $stackName -f $composePath --project-directory $RepoRoot down -v
+            docker compose @composeArgs down -v
         }
         else {
-            docker compose -p $stackName -f $composePath --project-directory $RepoRoot down
+            docker compose @composeArgs down
         }
     }
 
@@ -195,19 +210,32 @@ try {
     Write-Step 'Starting stack'
     $oldApiImageTag = $env:API_IMAGE_TAG
     $oldDockerNetwork = $env:DOCKER_NETWORK
+    $oldApiPublishPort = $env:API_PUBLISH_PORT
     $env:API_IMAGE_TAG = $imageTag
     $env:DOCKER_NETWORK = $network
+    if ($usePublishOverlay) {
+        $env:API_PUBLISH_PORT = $publishPort
+    }
+    else {
+        Remove-Item Env:API_PUBLISH_PORT -ErrorAction SilentlyContinue
+    }
     try {
-        docker compose -p $stackName -f $composePath --project-directory $RepoRoot up -d
+        docker compose @composeArgs up -d
         if ($LASTEXITCODE -ne 0) { throw 'docker compose up failed' }
     }
     finally {
         if ($null -ne $oldApiImageTag) { $env:API_IMAGE_TAG = $oldApiImageTag } else { Remove-Item Env:API_IMAGE_TAG -ErrorAction SilentlyContinue }
         if ($null -ne $oldDockerNetwork) { $env:DOCKER_NETWORK = $oldDockerNetwork } else { Remove-Item Env:DOCKER_NETWORK -ErrorAction SilentlyContinue }
+        if ($null -ne $oldApiPublishPort) { $env:API_PUBLISH_PORT = $oldApiPublishPort } else { Remove-Item Env:API_PUBLISH_PORT -ErrorAction SilentlyContinue }
     }
 
     Write-Ok 'Deploy complete'
-    Write-Host "URL: http://localhost:8080" -ForegroundColor Green
+    if ($usePublishOverlay) {
+        Write-Host "URL: http://localhost:$publishPort" -ForegroundColor Green
+    }
+    else {
+        Write-Host 'URL: (no host publish; use Docker network DNS)' -ForegroundColor Green
+    }
 }
 catch {
     Write-Fail $_.Exception.Message

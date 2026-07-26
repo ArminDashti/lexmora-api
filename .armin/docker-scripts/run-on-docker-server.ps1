@@ -47,13 +47,14 @@ CONFIG:
   delete_volume       yes/true/1/y/on → remove volumes before up
   delete_image        yes/true/1/y/on → remove image during teardown
   build_image_on      local = build here and upload; server = build on remote
-  ssh                 "ssh <alias>" or "host@user@password"
+  ssh                 "ssh <alias>" | "ssh <alias> -p <port>" | "host@user@password"
   volume_dir          Absolute remote directory for project + compose files
 
 NOTES:
   - No CLI -- flags. Change behavior only via YAML.
   - Sets API_IMAGE_TAG / API_PUBLISH_PORT / DOCKER_NETWORK for this repo's compose.
-  - Alias mode uses ~/.ssh/config (no ssh_key field).
+  - Empty publish_port = expose-only (HAProxy / Docker DNS); non-empty adds publish overlay.
+  - Alias mode uses ~/.ssh/config (no ssh_key field). Optional -p overrides Port.
   - Rejects placeholder ssh values at runtime.
   - Never prints the password segment of host@user@password.
   - build_image_on=local requires Docker on this machine.
@@ -100,7 +101,24 @@ function Require-Key($Map, [string]$Key) {
 
 function Resolve-DeployPath([string]$RelativePath) {
     $candidate = Join-Path $DeployDir $RelativePath
-    return (Resolve-Path -LiteralPath $candidate).Path
+    $fullPath = [System.IO.Path]::GetFullPath($candidate)
+    if (-not (Test-Path -LiteralPath $fullPath)) {
+        throw "Path not found: $fullPath"
+    }
+    return $fullPath
+}
+
+function Get-LongFilePath([string]$Path) {
+    $full = [System.IO.Path]::GetFullPath($Path)
+    if (Test-Path -LiteralPath $full) {
+        return (Get-Item -LiteralPath $full).FullName
+    }
+    $parent = Split-Path -Parent $full
+    $leaf = Split-Path -Leaf $full
+    if ([string]::IsNullOrWhiteSpace($parent) -or -not (Test-Path -LiteralPath $parent)) {
+        return $full
+    }
+    return [System.IO.Path]::Combine((Get-Item -LiteralPath $parent).FullName, $leaf)
 }
 
 function Get-RepoRelativePath([string]$AbsolutePath) {
@@ -141,12 +159,54 @@ function Ensure-Docker {
 
 function Parse-SshTarget([string]$SshValue) {
     $value = $SshValue.Trim()
-    if ($value -match '^(?i)ssh\s+(?<alias>\S+)$') {
-        $alias = $Matches['alias']
+    if ($value -match '^(?i)ssh\s+(?<rest>.+)$') {
+        $tokens = @($Matches['rest'] -split '\s+' | Where-Object { $_ -ne '' })
+        if ($tokens.Count -lt 1) {
+            throw 'ssh alias mode requires a Host alias (e.g. "ssh t3 -p 80").'
+        }
+
+        $alias = $null
+        $sshArgs = New-Object System.Collections.Generic.List[string]
+        $scpArgs = New-Object System.Collections.Generic.List[string]
+        $i = 0
+        while ($i -lt $tokens.Count) {
+            $tok = $tokens[$i]
+            if ($tok -eq '-p' -or $tok -eq '-P') {
+                if ($i + 1 -ge $tokens.Count) {
+                    throw 'ssh -p requires a port number.'
+                }
+                $port = $tokens[$i + 1]
+                if ($port -notmatch '^\d+$') {
+                    throw "ssh -p port must be numeric, got: $port"
+                }
+                [void]$sshArgs.Add('-p')
+                [void]$sshArgs.Add($port)
+                [void]$scpArgs.Add('-P')
+                [void]$scpArgs.Add($port)
+                $i += 2
+                continue
+            }
+            if ($tok.StartsWith('-')) {
+                throw "Unsupported ssh option '$tok'. Use: ssh <alias> [-p <port>]"
+            }
+            if ($null -ne $alias) {
+                throw "Multiple SSH hosts in: $SshValue"
+            }
+            $alias = $tok
+            $i++
+        }
+
+        if ($null -eq $alias) {
+            throw 'ssh alias missing. Use: ssh <alias> [-p <port>]'
+        }
+
+        $logExtra = if ($sshArgs.Count -gt 0) { ' ' + ($sshArgs -join ' ') } else { '' }
         return @{
             Mode      = 'alias'
             Alias     = $alias
-            LogTarget = "ssh $alias"
+            SshArgs   = @($sshArgs)
+            ScpArgs   = @($scpArgs)
+            LogTarget = "ssh $alias$logExtra"
         }
     }
 
@@ -163,18 +223,20 @@ function Parse-SshTarget([string]$SshValue) {
             Host      = $hostName
             User      = $userName
             Password  = $password
+            SshArgs   = @()
+            ScpArgs   = @()
             LogTarget = "$userName@$hostName"
         }
     }
 
-    throw 'ssh must be "ssh <alias>" or "host@user@password".'
+    throw 'ssh must be "ssh <alias> [-p <port>]" or "host@user@password".'
 }
 
 function Invoke-Remote {
     param($Target, [string]$RemoteCommand)
 
     if ($Target.Mode -eq 'alias') {
-        & ssh -o BatchMode=yes $Target.Alias $RemoteCommand
+        & ssh @($Target.SshArgs) -o BatchMode=yes $Target.Alias $RemoteCommand
         if ($LASTEXITCODE -ne 0) { throw "Remote command failed on $($Target.LogTarget)" }
         return
     }
@@ -196,7 +258,7 @@ function Copy-ToRemote {
     param($Target, [string]$LocalPath, [string]$RemotePath)
 
     if ($Target.Mode -eq 'alias') {
-        & scp -o BatchMode=yes $LocalPath "$($Target.Alias):$RemotePath"
+        & scp @($Target.ScpArgs) -o BatchMode=yes $LocalPath "$($Target.Alias):$RemotePath"
         if ($LASTEXITCODE -ne 0) { throw "SCP failed to $($Target.LogTarget):$RemotePath" }
         return
     }
@@ -218,7 +280,7 @@ function Copy-DirToRemote {
     param($Target, [string]$LocalDir, [string]$RemoteDir)
 
     if ($Target.Mode -eq 'alias') {
-        & scp -r -o BatchMode=yes "$LocalDir/." "$($Target.Alias):$RemoteDir/"
+        & scp @($Target.ScpArgs) -r -o BatchMode=yes "$LocalDir/." "$($Target.Alias):$RemoteDir/"
         if ($LASTEXITCODE -ne 0) { throw "SCP directory failed to $($Target.LogTarget):$RemoteDir" }
         return
     }
@@ -274,8 +336,19 @@ try {
     $composePath = Resolve-DeployPath $composeFileRel
     $dockerfile = Resolve-DeployPath $dockerfileRel
     $composeFileName = Split-Path -Leaf $composePath
+    $composeDir = Split-Path -Parent $composePath
+    $publishComposeName = 'docker-compose.publish.yml'
+    $publishComposePath = Join-Path $composeDir $publishComposeName
+    $usePublishOverlay = -not [string]::IsNullOrWhiteSpace($publishPort)
+    if ($usePublishOverlay -and -not (Test-Path -LiteralPath $publishComposePath)) {
+        throw "publish_port is set but overlay missing: $publishComposePath"
+    }
     $remoteDockerfile = Get-RepoRelativePath $dockerfile
     $remoteCompose = "$volumeDir/$composeFileName"
+    $composeFilesArg = "-f '$remoteCompose'"
+    if ($usePublishOverlay) {
+        $composeFilesArg = "-f '$remoteCompose' -f '$volumeDir/$publishComposeName'"
+    }
 
     $target = Parse-SshTarget -SshValue $sshValue
     Write-Step "Remote target: $($target.LogTarget)"
@@ -298,27 +371,34 @@ try {
         Write-Ok "Built $imageTag"
 
         $tarName = ($imageTag -replace '[:/]', '_') + '.tar'
-        $tarPath = Join-Path $env:TEMP $tarName
+        # Avoid 8.3 TEMP paths (e.g. AC508~1.DAS) — OpenSSH scp mishandles '~' in local paths.
+        $tarPath = Get-LongFilePath (Join-Path $DeployDir $tarName)
         Write-Step "Saving image to $tarPath"
         docker save -o $tarPath $imageTag
         if ($LASTEXITCODE -ne 0) { throw 'docker save failed' }
 
         $remoteTar = "/tmp/$tarName"
         Write-Step "Uploading image to $($target.LogTarget)"
-        Copy-ToRemote -Target $target -LocalPath $tarPath -RemotePath $remoteTar
-        Write-Ok "Image tar uploaded to $remoteTar"
-        Remove-Item -LiteralPath $tarPath -Force -ErrorAction SilentlyContinue
+        try {
+            Copy-ToRemote -Target $target -LocalPath $tarPath -RemotePath $remoteTar
+            Write-Ok "Image tar uploaded to $remoteTar"
+        }
+        finally {
+            Remove-Item -LiteralPath $tarPath -Force -ErrorAction SilentlyContinue
+        }
 
         $syncItems = @(
-            $composeFileName
-            'run-on-docker-server.yaml'
+            @{ Local = $composePath; Remote = "$volumeDir/$composeFileName"; Label = $composeFileName }
+            @{ Local = (Join-Path $DeployDir 'run-on-docker-server.yaml'); Remote = "$volumeDir/run-on-docker-server.yaml"; Label = 'run-on-docker-server.yaml' }
         )
+        if ($usePublishOverlay) {
+            $syncItems += @{ Local = $publishComposePath; Remote = "$volumeDir/$publishComposeName"; Label = $publishComposeName }
+        }
         foreach ($item in $syncItems) {
-            $localItem = if ($item -eq $composeFileName) { $composePath } else { Join-Path $DeployDir $item }
+            $localItem = Get-LongFilePath $item.Local
             if (-not (Test-Path -LiteralPath $localItem)) { throw "Sync source not found: $localItem" }
-            $remoteItem = "$volumeDir/$item"
-            Write-Step "Sync $item"
-            Copy-ToRemote -Target $target -LocalPath $localItem -RemotePath $remoteItem
+            Write-Step "Sync $($item.Label)"
+            Copy-ToRemote -Target $target -LocalPath $localItem -RemotePath $item.Remote
         }
     }
 
@@ -326,7 +406,7 @@ try {
 
     if ($deleteVolume -or $deleteImage) {
         Write-Step 'Remote compose down'
-        Invoke-Remote -Target $target -RemoteCommand "docker compose -p '$stackName' -f '$remoteCompose' --project-directory '$volumeDir' down $downFlags"
+        Invoke-Remote -Target $target -RemoteCommand "docker compose -p '$stackName' $composeFilesArg --project-directory '$volumeDir' down $downFlags"
     }
 
     if ($deleteImage) {
@@ -356,8 +436,11 @@ try {
     } $publishPort
 
     Write-Step 'Remote compose up -d'
-    Invoke-Remote -Target $target -RemoteCommand "${envPrefix}docker compose -p '$stackName' -f '$remoteCompose' --project-directory '$volumeDir' up -d"
+    Invoke-Remote -Target $target -RemoteCommand "${envPrefix}docker compose -p '$stackName' $composeFilesArg --project-directory '$volumeDir' up -d"
     Write-Ok "Stack deployed at $volumeDir on $($target.LogTarget)"
+    if ([string]::IsNullOrWhiteSpace($publishPort)) {
+        Write-Ok 'Public URL: https://lexmora-api.xaigrok.ir (HAProxy → lexmora-api:8080 on t3-net)'
+    }
 }
 catch {
     Write-Fail $_.Exception.Message
