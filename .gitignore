@@ -2,3 +2,6 @@
 *.exe
 bin/
 dist/
+
+# --- auto: github-commit-push-all-repos ---
+# --- end auto ---
