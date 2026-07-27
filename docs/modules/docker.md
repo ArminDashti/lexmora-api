@@ -12,6 +12,7 @@ API and PostgreSQL run from this repo. The web UI is deployed separately from [l
 | `.armin/docker-scripts/run-on-docker-server.yaml` | Remote settings (`ssh`, `volume_dir`) |
 | `.deploy/docker/Dockerfile` | Go API image (build context = repo root) |
 | `.deploy/docker/docker-compose.yml` | `lexmora-pgsql` + `lexmora-api` on external `t3-net` |
+| `.deploy/docker/docker-compose.openrouter-proxy.yml` | Server overlay: join `openvpn-net`, set `OPENROUTER_HTTP_PROXY=http://mullvad-1:8778` |
 | `.deploy/docker/docker-compose.publish.yml` | Legacy optional host-port overlay (compose now has inline `API_PUBLISH_PORT`) |
 | `.deploy/docker/run-on-docker-*.ps1` / `.yaml` | Legacy deploy pair (prefer `.armin/docker-scripts/`) |
 | `.deploy/docker/common.ps1` | Shared helpers for legacy scripts |

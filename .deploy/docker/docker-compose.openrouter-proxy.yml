@@ -1,0 +1,12 @@
+# Server overlay: route OpenRouter via 3proxy in mullvad-1 netns (same as SoftEther).
+services:
+  lexmora-api:
+    environment:
+      OPENROUTER_HTTP_PROXY: ${OPENROUTER_HTTP_PROXY:-http://mullvad-1:8778}
+    networks:
+      - openvpn-net
+
+networks:
+  openvpn-net:
+    name: ${OPENVPN_NETWORK:-openvpn-net}
+    external: true

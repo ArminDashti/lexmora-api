@@ -44,7 +44,10 @@ func main() {
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	settingsService := service.NewSettingsService(settingsRepo)
 	instructionService := service.NewInstructionService(instructionRepo)
-	openRouter := service.NewOpenRouterClient("")
+	openRouter, err := service.NewOpenRouterClient("", cfg.OpenRouterHTTPProxy)
+	if err != nil {
+		log.Fatalf("openrouter client: %v", err)
+	}
 	transformService := service.NewTransformService(historyRepo, settingsService, instructionService, openRouter)
 	historyService := service.NewHistoryService(historyRepo)
 	statsService := service.NewStatsService(historyRepo)

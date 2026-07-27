@@ -343,12 +343,20 @@ try {
     if ($usePublishOverlay -and -not (Test-Path -LiteralPath $publishComposePath)) {
         throw "publish_port is set but overlay missing: $publishComposePath"
     }
+    $openrouterProxyComposeName = 'docker-compose.openrouter-proxy.yml'
+    $openrouterProxyComposePath = Join-Path $composeDir $openrouterProxyComposeName
+    $useOpenrouterProxyOverlay = Test-Path -LiteralPath $openrouterProxyComposePath
     $remoteDockerfile = Get-RepoRelativePath $dockerfile
     $remoteCompose = "$volumeDir/$composeFileName"
-    $composeFilesArg = "-f '$remoteCompose'"
+    $composeFileArgs = New-Object System.Collections.Generic.List[string]
+    [void]$composeFileArgs.Add("-f '$remoteCompose'")
     if ($usePublishOverlay) {
-        $composeFilesArg = "-f '$remoteCompose' -f '$volumeDir/$publishComposeName'"
+        [void]$composeFileArgs.Add("-f '$volumeDir/$publishComposeName'")
     }
+    if ($useOpenrouterProxyOverlay) {
+        [void]$composeFileArgs.Add("-f '$volumeDir/$openrouterProxyComposeName'")
+    }
+    $composeFilesArg = ($composeFileArgs -join ' ')
 
     $target = Parse-SshTarget -SshValue $sshValue
     Write-Step "Remote target: $($target.LogTarget)"
@@ -393,6 +401,9 @@ try {
         )
         if ($usePublishOverlay) {
             $syncItems += @{ Local = $publishComposePath; Remote = "$volumeDir/$publishComposeName"; Label = $publishComposeName }
+        }
+        if ($useOpenrouterProxyOverlay) {
+            $syncItems += @{ Local = $openrouterProxyComposePath; Remote = "$volumeDir/$openrouterProxyComposeName"; Label = $openrouterProxyComposeName }
         }
         foreach ($item in $syncItems) {
             $localItem = Get-LongFilePath $item.Local

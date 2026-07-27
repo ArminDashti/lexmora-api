@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -19,14 +20,27 @@ type OpenRouterClient struct {
 	client  *http.Client
 }
 
-func NewOpenRouterClient(baseURL string) *OpenRouterClient {
+func NewOpenRouterClient(baseURL, httpProxy string) (*OpenRouterClient, error) {
 	if baseURL == "" {
 		baseURL = defaultOpenRouterURL
 	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if strings.TrimSpace(httpProxy) != "" {
+		proxyURL, err := url.Parse(httpProxy)
+		if err != nil {
+			return nil, fmt.Errorf("openrouter http proxy: %w", err)
+		}
+		transport.Proxy = http.ProxyURL(proxyURL)
+	}
+
 	return &OpenRouterClient{
 		baseURL: baseURL,
-		client:  &http.Client{Timeout: 120 * time.Second},
-	}
+		client: &http.Client{
+			Timeout:   120 * time.Second,
+			Transport: transport,
+		},
+	}, nil
 }
 
 type chatRequest struct {
