@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ArminDashti/lexmora-api/internal/domain"
+	"github.com/ArminDashti/lexmora-api/internal/service"
 )
 
 func (h *Handler) ListInstructions(c *gin.Context) {
@@ -44,4 +45,19 @@ func (h *Handler) PutInstruction(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, item)
+}
+
+func (h *Handler) CreateInstruction(c *gin.Context) {
+	var req service.CreateInstructionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, domain.APIError{Error: err.Error(), Code: "VALIDATION_ERROR"})
+		return
+	}
+
+	item, err := h.instructionService.CreateFromOperation(c.Request.Context(), req)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, item)
 }

@@ -118,18 +118,23 @@ function Resolve-SshConnection {
         $keyPath = (Resolve-Path -LiteralPath $SshKey).Path
     }
 
-    if ($value -match '^(?i)ssh\s+(?<alias>\S+)$') {
+    if ($value -match '^(?i)ssh(?:\s+-p\s*(?<port1>\d+))?\s+(?<alias>\S+)(?:\s+-p\s*(?<port2>\d+))?$') {
         $alias = $Matches['alias']
+        $port = $null
+        if ($Matches['port1']) { $port = $Matches['port1'] }
+        if ($Matches['port2']) { $port = $Matches['port2'] }
         if (Test-IsPlaceholder -Value $alias) {
             throw 'YAML key "ssh" still uses a placeholder alias. Replace <alias> with your SSH config Host name.'
         }
         if ([string]::IsNullOrWhiteSpace($keyPath)) {
             throw 'YAML key "ssh_key" is required for "ssh <alias>" mode. Set it to your private key path.'
         }
+        $display = if ($port) { "ssh $alias -p $port" } else { "ssh $alias" }
         return [pscustomobject]@{
             Mode      = 'Alias'
-            Display   = "ssh $alias"
+            Display   = $display
             SshTarget = $alias
+            Port      = $port
             Password  = $null
             SshKey    = $keyPath
         }
@@ -153,12 +158,13 @@ function Resolve-SshConnection {
             Mode      = 'Password'
             Display   = "${userName}@${hostName}"
             SshTarget = "${userName}@${hostName}"
+            Port      = $null
             Password  = $password
             SshKey    = $keyPath
         }
     }
 
-    throw 'Invalid ssh value. Use "ssh <alias>" or "server-address@username@password".'
+    throw 'Invalid ssh value. Use "ssh <alias> [-p <port>]" or "server-address@username@password".'
 }
 
 function New-SshAskPassFile {
@@ -204,7 +210,16 @@ function Invoke-SshProcess {
             if ($Connection.SshKey) {
                 $identityArgs = @('-i', $Connection.SshKey, '-o', 'IdentitiesOnly=yes')
             }
-            $allArgs = $commonOpts + $identityArgs + @($Connection.SshTarget) + $Arguments
+            $portArgs = @()
+            if (-not [string]::IsNullOrWhiteSpace([string]$Connection.Port)) {
+                if ($Binary -eq 'scp') {
+                    $portArgs = @('-P', [string]$Connection.Port)
+                }
+                else {
+                    $portArgs = @('-p', [string]$Connection.Port)
+                }
+            }
+            $allArgs = $commonOpts + $identityArgs + $portArgs + @($Connection.SshTarget) + $Arguments
             if ($null -ne $StdIn) {
                 $StdIn | & $Binary @allArgs
             }

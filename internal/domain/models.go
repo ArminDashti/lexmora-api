@@ -45,21 +45,21 @@ func (t HistoryType) DisplayName() string {
 	case HistoryTypeSimplify:
 		return "Simplify"
 	case HistoryTypeEnFa:
-		return "EN-FA"
+		return "English-Persian"
 	case HistoryTypeFaEn:
-		return "FA-EN"
+		return "Persian-English"
 	case HistoryTypeTermEn:
-		return "Term EN"
+		return "Term English"
 	case HistoryTypeTermFa:
-		return "Term FA"
+		return "Term Persian"
 	case HistoryTypeRefine:
 		return "Refine"
 	case HistoryTypeSymptoms:
 		return "Symptoms"
 	case HistoryTypeCompareEn:
-		return "Compare EN"
+		return "Compare English"
 	case HistoryTypeCompareFa:
-		return "Compare FA"
+		return "Compare Persian"
 	default:
 		return string(t)
 	}

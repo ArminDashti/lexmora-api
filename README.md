@@ -77,15 +77,19 @@ OpenRouter API key and model are configured through the Settings API (stored in 
 | GET | `/api/v1/health` | No | Health check |
 | POST | `/api/v1/auth/login` | No | Login |
 | POST | `/api/v1/transform` | JWT | Run operation |
-| GET | `/api/v1/history` | JWT | List history |
+| GET | `/api/v1/transform/options` | JWT | Dynamic operation catalog |
+| GET | `/api/v1/history` | JWT | List history (`type`, `from`, `to`, sort, paging) |
 | GET | `/api/v1/history/:id` | JWT | Get history item |
 | DELETE | `/api/v1/history/:id` | JWT | Delete history item |
 | GET | `/api/v1/stats` | JWT | Usage statistics |
 | GET | `/api/v1/instructions` | JWT | List instructions |
+| POST | `/api/v1/instructions` | JWT | Create instruction from operation fields |
 | GET | `/api/v1/instructions/:key` | JWT | Get instruction |
 | PUT | `/api/v1/instructions/:key` | JWT | Update instruction |
 | GET | `/api/v1/settings` | JWT | Get settings |
 | PATCH | `/api/v1/settings` | JWT | Update settings |
+| GET | `/api/v1/settings/models` | JWT | Search OpenRouter models |
+| GET | `/api/v1/settings/credits` | JWT | OpenRouter credits / key usage |
 | DELETE | `/api/v1/settings/data` | JWT | Clear all history |
 
 See [docs/endpoints.md](docs/endpoints.md) for details.

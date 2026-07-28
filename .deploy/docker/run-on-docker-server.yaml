@@ -3,7 +3,7 @@
 # Fill in ssh and ssh_key before running (placeholders are rejected at runtime).
 #
 # ssh formats:
-#   ssh <alias>                         # SSH config Host alias (uses ssh_key)
+#   ssh <alias> [-p <port>]             # SSH config Host alias (uses ssh_key)
 #   server-address@username@password    # direct password login (ssh_key optional)
 
 stack_name: lexmora
@@ -15,7 +15,7 @@ api_publish_port: ""
 delete_volume: "no"
 delete_image: "no"
 
-ssh: "ssh <alias>"
+ssh: "ssh t3 -p 80"
 ssh_key: "<path-to-private-key>"
 
 jwt_secret: change-me-docker-dev-only

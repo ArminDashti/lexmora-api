@@ -19,6 +19,7 @@ type Handler struct {
 	statsService       *service.StatsService
 	settingsService    *service.SettingsService
 	instructionService *service.InstructionService
+	openRouter         *service.OpenRouterClient
 }
 
 func New(
@@ -28,6 +29,7 @@ func New(
 	statsService *service.StatsService,
 	settingsService *service.SettingsService,
 	instructionService *service.InstructionService,
+	openRouter *service.OpenRouterClient,
 ) *Handler {
 	return &Handler{
 		authService:        authService,
@@ -36,6 +38,7 @@ func New(
 		statsService:       statsService,
 		settingsService:    settingsService,
 		instructionService: instructionService,
+		openRouter:         openRouter,
 	}
 }
 
@@ -50,11 +53,15 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 	case errors.Is(err, service.ErrInvalidCredentials):
 		c.JSON(http.StatusUnauthorized, domain.APIError{Error: err.Error(), Code: "INVALID_CREDENTIALS"})
 	default:
+		if err != nil && strings.Contains(err.Error(), "not configured") {
+			c.JSON(http.StatusBadRequest, domain.APIError{Error: err.Error(), Code: "VALIDATION_ERROR"})
+			return
+		}
 		if err != nil && strings.Contains(err.Error(), "openrouter") {
 			c.JSON(http.StatusBadGateway, domain.APIError{Error: err.Error(), Code: "OPENROUTER_ERROR"})
 			return
 		}
-		if err != nil && (strings.Contains(err.Error(), "required") || strings.Contains(err.Error(), "invalid")) {
+		if err != nil && (strings.Contains(err.Error(), "required") || strings.Contains(err.Error(), "invalid") || strings.Contains(err.Error(), "not found for key")) {
 			c.JSON(http.StatusBadRequest, domain.APIError{Error: err.Error(), Code: "VALIDATION_ERROR"})
 			return
 		}

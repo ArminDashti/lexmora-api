@@ -22,6 +22,16 @@ func NewHistoryRepository(pool *pgxpool.Pool) *HistoryRepository {
 	return &HistoryRepository{pool: pool}
 }
 
+type HistoryListFilter struct {
+	SortBy    string
+	SortOrder string
+	Limit     int
+	Offset    int
+	Type      string
+	From      *time.Time
+	To        *time.Time
+}
+
 func (r *HistoryRepository) Create(ctx context.Context, record domain.HistoryRecord) (*domain.HistoryRecord, error) {
 	var metadata any
 	if len(record.Metadata) > 0 {
@@ -49,9 +59,9 @@ func (r *HistoryRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 	return r.scanOne(ctx, `SELECT id, type, input_text, result_text, model, instruction_key, metadata, created_at FROM history WHERE id = $1`, id)
 }
 
-func (r *HistoryRepository) List(ctx context.Context, sortBy, sortOrder string, limit, offset int) ([]domain.HistoryRecord, error) {
+func (r *HistoryRepository) List(ctx context.Context, filter HistoryListFilter) ([]domain.HistoryRecord, error) {
 	col := "created_at"
-	switch strings.ToLower(sortBy) {
+	switch strings.ToLower(filter.SortBy) {
 	case "type":
 		col = "type"
 	case "model":
@@ -61,10 +71,11 @@ func (r *HistoryRepository) List(ctx context.Context, sortBy, sortOrder string, 
 	}
 
 	order := "DESC"
-	if strings.ToLower(sortOrder) == "asc" {
+	if strings.ToLower(filter.SortOrder) == "asc" {
 		order = "ASC"
 	}
 
+	limit := filter.Limit
 	if limit <= 0 {
 		limit = 50
 	}
@@ -72,14 +83,39 @@ func (r *HistoryRepository) List(ctx context.Context, sortBy, sortOrder string, 
 		limit = 200
 	}
 
+	where := []string{"1=1"}
+	args := []any{}
+	argN := 1
+
+	if t := strings.TrimSpace(filter.Type); t != "" {
+		where = append(where, fmt.Sprintf("type = $%d", argN))
+		args = append(args, t)
+		argN++
+	}
+	if filter.From != nil {
+		where = append(where, fmt.Sprintf("created_at >= $%d", argN))
+		args = append(args, *filter.From)
+		argN++
+	}
+	if filter.To != nil {
+		where = append(where, fmt.Sprintf("created_at < $%d", argN))
+		args = append(args, *filter.To)
+		argN++
+	}
+
+	args = append(args, limit, filter.Offset)
+	limitIdx := argN
+	offsetIdx := argN + 1
+
 	query := fmt.Sprintf(`
 		SELECT id, type, input_text, result_text, model, instruction_key, metadata, created_at
 		FROM history
+		WHERE %s
 		ORDER BY %s %s
-		LIMIT $1 OFFSET $2
-	`, col, order)
+		LIMIT $%d OFFSET $%d
+	`, strings.Join(where, " AND "), col, order, limitIdx, offsetIdx)
 
-	rows, err := r.pool.Query(ctx, query, limit, offset)
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list history: %w", err)
 	}

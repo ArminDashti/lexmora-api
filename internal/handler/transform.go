@@ -3,9 +3,12 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ArminDashti/lexmora-api/internal/domain"
+	"github.com/ArminDashti/lexmora-api/internal/repository"
 	"github.com/ArminDashti/lexmora-api/internal/service"
 )
 
@@ -24,6 +27,15 @@ func (h *Handler) Transform(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+func (h *Handler) GetTransformOptions(c *gin.Context) {
+	opts, err := h.transformService.GetOptions(c.Request.Context())
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, opts)
+}
+
 func queryInt(c *gin.Context, key string, defaultVal int) int {
 	v := c.Query(key)
 	if v == "" {
@@ -36,13 +48,46 @@ func queryInt(c *gin.Context, key string, defaultVal int) int {
 	return n
 }
 
-func (h *Handler) ListHistory(c *gin.Context) {
-	sortBy := c.DefaultQuery("sort_by", "datetime")
-	sortOrder := c.DefaultQuery("sort_order", "desc")
-	limit := queryInt(c, "limit", 100)
-	offset := queryInt(c, "offset", 0)
+func parseDayBound(value string, endOfDay bool) (*time.Time, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil, nil
+	}
+	day, err := time.ParseInLocation("2006-01-02", value, time.Local)
+	if err != nil {
+		return nil, err
+	}
+	if endOfDay {
+		// Exclusive upper bound: start of next day.
+		next := day.AddDate(0, 0, 1)
+		return &next, nil
+	}
+	return &day, nil
+}
 
-	items, err := h.historyService.List(c.Request.Context(), sortBy, sortOrder, limit, offset)
+func (h *Handler) ListHistory(c *gin.Context) {
+	from, err := parseDayBound(c.Query("from"), false)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, domain.APIError{Error: "invalid from date (use YYYY-MM-DD)", Code: "VALIDATION_ERROR"})
+		return
+	}
+	to, err := parseDayBound(c.Query("to"), true)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, domain.APIError{Error: "invalid to date (use YYYY-MM-DD)", Code: "VALIDATION_ERROR"})
+		return
+	}
+
+	filter := repository.HistoryListFilter{
+		SortBy:    c.DefaultQuery("sort_by", "datetime"),
+		SortOrder: c.DefaultQuery("sort_order", "desc"),
+		Limit:     queryInt(c, "limit", 100),
+		Offset:    queryInt(c, "offset", 0),
+		Type:      c.Query("type"),
+		From:      from,
+		To:        to,
+	}
+
+	items, err := h.historyService.List(c.Request.Context(), filter)
 	if err != nil {
 		h.handleError(c, err)
 		return

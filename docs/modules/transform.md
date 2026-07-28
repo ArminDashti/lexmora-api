@@ -2,19 +2,23 @@
 
 **Package:** `internal/service/transform.go` + `internal/handler/transform.go`
 
-Maps UI operation selections to instruction keys, calls OpenRouter, and saves history.
+Maps UI operation selections to instruction keys (must exist in DB), calls OpenRouter, and saves history.
+
+Dropdown options are **not hardcoded** — `GET /transform/options` builds them from instruction keys.
 
 ## Operation → instruction key mapping
 
-| Operation | Params | History type |
-|-----------|--------|--------------|
-| translate | en-fa + mode | EN-FA |
-| translate | fa-en + mode | FA-EN |
-| simplify | — | Simplify |
-| term | en/fa + style | Term EN / Term FA |
-| refine | style | Refine |
-| symptoms | — | Symptoms |
-| compare | text1 + text2 + language | Compare EN / Compare FA |
+| Operation | Params | Instruction key | History type |
+|-----------|--------|-----------------|--------------|
+| translate | en-fa + mode | `en-to-fa-{mode}` | English-Persian |
+| translate | fa-en + mode | `fa-to-en-{mode}` | Persian-English |
+| simplify | — | `simplify-en` | Simplify |
+| term | style (+ optional language) | `term-for-{style}` | Term English / Persian |
+| refine | style | `refine-to-{style}` | Refine |
+| symptoms | — | `symptoms` | Symptoms |
+| compare | language | `compare-{lang}` | Compare English / Persian |
+
+New modes/styles are created via `POST /instructions` (Instructions page).
 
 ## Dependencies
 

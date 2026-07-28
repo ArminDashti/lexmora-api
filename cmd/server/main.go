@@ -59,7 +59,7 @@ func main() {
 		log.Fatalf("instructions: %v", err)
 	}
 
-	h := handler.New(authService, transformService, historyService, statsService, settingsService, instructionService)
+	h := handler.New(authService, transformService, historyService, statsService, settingsService, instructionService, openRouter)
 
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
@@ -76,18 +76,22 @@ func main() {
 	api.Use(middleware.JWTAuth(authService))
 	{
 		api.POST("/transform", h.Transform)
+		api.GET("/transform/options", h.GetTransformOptions)
 		api.GET("/history", h.ListHistory)
 		api.GET("/history/:id", h.GetHistory)
 		api.DELETE("/history/:id", h.DeleteHistory)
 		api.GET("/stats", h.GetStats)
 
 		api.GET("/instructions", h.ListInstructions)
+		api.POST("/instructions", h.CreateInstruction)
 		api.GET("/instructions/:key", h.GetInstruction)
 		api.PUT("/instructions/:key", h.PutInstruction)
 
 		api.GET("/settings", h.GetSettings)
 		api.PATCH("/settings", h.PatchSettings)
 		api.DELETE("/settings/data", h.ClearData)
+		api.GET("/settings/models", h.SearchModels)
+		api.GET("/settings/credits", h.GetCredits)
 	}
 
 	if cfg.StaticDir != "" {

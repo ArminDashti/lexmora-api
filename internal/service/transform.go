@@ -3,8 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/ArminDashti/lexmora-api/internal/domain"
@@ -61,7 +64,7 @@ func (s *TransformService) Transform(ctx context.Context, req TransformRequest) 
 		}
 	}
 
-	historyType, instructionKey, userText, metadata, err := s.resolveTransform(req, inputText)
+	historyType, instructionKey, userText, metadata, err := s.resolveTransform(ctx, req, inputText)
 	if err != nil {
 		return nil, err
 	}
@@ -108,81 +111,109 @@ func (s *TransformService) Transform(ctx context.Context, req TransformRequest) 
 	}, nil
 }
 
-func (s *TransformService) resolveTransform(req TransformRequest, text string) (domain.HistoryType, string, string, map[string]string, error) {
+func (s *TransformService) resolveTransform(ctx context.Context, req TransformRequest, text string) (domain.HistoryType, string, string, map[string]string, error) {
 	op := strings.ToLower(strings.TrimSpace(req.Operation))
 	metadata := map[string]string{}
 
 	switch op {
 	case "translate":
-		dir := strings.ToLower(req.Direction)
-		mode := strings.ToLower(req.Mode)
-		if dir == "en-fa" {
-			key := fmt.Sprintf("en-to-fa-%s", mode)
-			if mode == "movie" {
-				movie := strings.TrimSpace(req.MovieName)
-				if movie == "" {
-					return "", "", "", nil, fmt.Errorf("movie name is required for movie mode")
-				}
-				metadata["movie_name"] = movie
-				return domain.HistoryTypeEnFa, key, fmt.Sprintf("Movie: %s\n\n%s", movie, text), metadata, nil
-			}
-			if !isValidEnFaMode(mode) {
-				return "", "", "", nil, fmt.Errorf("invalid translate mode: %s", mode)
-			}
-			return domain.HistoryTypeEnFa, key, text, metadata, nil
+		dir := strings.ToLower(strings.TrimSpace(req.Direction))
+		mode := normalizeSlug(req.Mode)
+		if mode == "" {
+			return "", "", "", nil, fmt.Errorf("invalid translate mode: %s", req.Mode)
 		}
-		if dir == "fa-en" {
-			key := fmt.Sprintf("fa-to-en-%s", mode)
-			if !isValidFaEnMode(mode) {
-				return "", "", "", nil, fmt.Errorf("invalid translate mode: %s", mode)
-			}
-			return domain.HistoryTypeFaEn, key, text, metadata, nil
+		var key string
+		var historyType domain.HistoryType
+		switch dir {
+		case "en-fa":
+			key = "en-to-fa-" + mode
+			historyType = domain.HistoryTypeEnFa
+		case "fa-en":
+			key = "fa-to-en-" + mode
+			historyType = domain.HistoryTypeFaEn
+		default:
+			return "", "", "", nil, fmt.Errorf("invalid translate direction: %s", req.Direction)
 		}
-		return "", "", "", nil, fmt.Errorf("invalid translate direction: %s", req.Direction)
+		if err := s.requireInstruction(ctx, key); err != nil {
+			return "", "", "", nil, err
+		}
+		if mode == "movie" {
+			movie := strings.TrimSpace(req.MovieName)
+			if movie == "" {
+				return "", "", "", nil, fmt.Errorf("movie name is required for movie mode")
+			}
+			metadata["movie_name"] = movie
+			return historyType, key, fmt.Sprintf("Movie: %s\n\n%s", movie, text), metadata, nil
+		}
+		return historyType, key, text, metadata, nil
 
 	case "simplify":
-		return domain.HistoryTypeSimplify, "simplify-en", text, metadata, nil
+		key := "simplify-en"
+		if err := s.requireInstruction(ctx, key); err != nil {
+			return "", "", "", nil, err
+		}
+		return domain.HistoryTypeSimplify, key, text, metadata, nil
 
 	case "term":
-		lang := strings.ToLower(req.Language)
-		style := strings.ToLower(req.Style)
-		key := fmt.Sprintf("term-for-%s", style)
-		if !isValidTermStyle(style) {
-			return "", "", "", nil, fmt.Errorf("invalid term style: %s", style)
+		lang := strings.ToLower(strings.TrimSpace(req.Language))
+		style := normalizeSlug(req.Style)
+		if style == "" {
+			return "", "", "", nil, fmt.Errorf("invalid term style: %s", req.Style)
+		}
+		key := "term-for-" + style
+		if err := s.requireInstruction(ctx, key); err != nil {
+			return "", "", "", nil, err
 		}
 		switch lang {
 		case "en":
 			return domain.HistoryTypeTermEn, key, "Find an English term for this description:\n\n" + text, metadata, nil
 		case "fa":
 			return domain.HistoryTypeTermFa, key, "Find a Persian term for this description:\n\n" + text, metadata, nil
+		case "":
+			// Language optional: instruction detects from input (legacy UI omitted language).
+			return domain.HistoryTypeTermEn, key, text, metadata, nil
 		default:
 			return "", "", "", nil, fmt.Errorf("invalid term language: %s", req.Language)
 		}
 
 	case "refine":
-		style := strings.ToLower(req.Style)
-		key := fmt.Sprintf("refine-to-%s", style)
-		if !isValidRefineStyle(style) {
-			return "", "", "", nil, fmt.Errorf("invalid refine style: %s", style)
+		style := normalizeSlug(req.Style)
+		if style == "" {
+			return "", "", "", nil, fmt.Errorf("invalid refine style: %s", req.Style)
+		}
+		key := "refine-to-" + style
+		if err := s.requireInstruction(ctx, key); err != nil {
+			return "", "", "", nil, err
 		}
 		return domain.HistoryTypeRefine, key, text, metadata, nil
 
 	case "symptoms":
-		return domain.HistoryTypeSymptoms, "symptoms", text, metadata, nil
+		key := "symptoms"
+		if err := s.requireInstruction(ctx, key); err != nil {
+			return "", "", "", nil, err
+		}
+		return domain.HistoryTypeSymptoms, key, text, metadata, nil
 
 	case "compare":
 		lang := strings.ToLower(strings.TrimSpace(req.Language))
+		if lang == "" {
+			lang = "en"
+		}
 		text1 := strings.TrimSpace(req.Text1)
 		text2 := strings.TrimSpace(req.Text2)
 		metadata["text1"] = text1
 		metadata["text2"] = text2
 		metadata["language"] = lang
+		key := "compare-" + lang
+		if err := s.requireInstruction(ctx, key); err != nil {
+			return "", "", "", nil, err
+		}
 		userMsg := fmt.Sprintf("Compare these two words or phrases:\n\n1: %s\n2: %s", text1, text2)
 		switch lang {
 		case "en":
-			return domain.HistoryTypeCompareEn, "compare-en", userMsg, metadata, nil
+			return domain.HistoryTypeCompareEn, key, userMsg, metadata, nil
 		case "fa":
-			return domain.HistoryTypeCompareFa, "compare-fa", userMsg, metadata, nil
+			return domain.HistoryTypeCompareFa, key, userMsg, metadata, nil
 		default:
 			return "", "", "", nil, fmt.Errorf("invalid compare language: %s", req.Language)
 		}
@@ -192,35 +223,279 @@ func (s *TransformService) resolveTransform(req TransformRequest, text string) (
 	}
 }
 
-func isValidEnFaMode(mode string) bool {
-	switch mode {
-	case "general", "movie", "formal", "scientific", "music":
-		return true
-	default:
-		return false
+func (s *TransformService) requireInstruction(ctx context.Context, key string) error {
+	if _, err := s.instructionSvc.Get(ctx, key); err != nil {
+		return fmt.Errorf("instruction not found for key %s", key)
 	}
+	return nil
 }
 
-func isValidFaEnMode(mode string) bool {
-	switch mode {
-	case "general", "formal", "scientific":
-		return true
-	default:
-		return false
+var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+
+func normalizeSlug(value string) string {
+	s := strings.ToLower(strings.TrimSpace(value))
+	s = strings.ReplaceAll(s, "_", "-")
+	s = strings.Join(strings.Fields(s), "-")
+	if !slugPattern.MatchString(s) {
+		return ""
 	}
+	return s
 }
 
-func isValidTermStyle(style string) bool {
-	switch style {
-	case "everyday", "formal", "slang":
-		return true
-	default:
-		return false
+func titleFromSlug(slug string) string {
+	parts := strings.Split(slug, "-")
+	for i, p := range parts {
+		if p == "" {
+			continue
+		}
+		r := []rune(p)
+		r[0] = unicode.ToUpper(r[0])
+		parts[i] = string(r)
 	}
+	return strings.Join(parts, " ")
 }
 
-func isValidRefineStyle(style string) bool {
-	return isValidTermStyle(style)
+// --- Transform options catalog (derived from instruction keys) ---
+
+type OptionItem struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
+}
+
+type DirectionOption struct {
+	Value string       `json:"value"`
+	Label string       `json:"label"`
+	Modes []OptionItem `json:"modes"`
+}
+
+type OperationOption struct {
+	Value      string            `json:"value"`
+	Label      string            `json:"label"`
+	Directions []DirectionOption `json:"directions,omitempty"`
+	Styles     []OptionItem      `json:"styles,omitempty"`
+	Languages  []OptionItem      `json:"languages,omitempty"`
+}
+
+type TransformOptions struct {
+	Operations []OperationOption `json:"operations"`
+}
+
+func (s *TransformService) GetOptions(ctx context.Context) (*TransformOptions, error) {
+	items, err := s.instructionSvc.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	enFaModes := map[string]struct{}{}
+	faEnModes := map[string]struct{}{}
+	refineStyles := map[string]struct{}{}
+	termStyles := map[string]struct{}{}
+	compareLangs := map[string]struct{}{}
+	hasSimplify := false
+	hasSymptoms := false
+
+	for _, item := range items {
+		key := item.Key
+		switch {
+		case strings.HasPrefix(key, "en-to-fa-"):
+			mode := strings.TrimPrefix(key, "en-to-fa-")
+			if mode != "" {
+				enFaModes[mode] = struct{}{}
+			}
+		case strings.HasPrefix(key, "fa-to-en-"):
+			mode := strings.TrimPrefix(key, "fa-to-en-")
+			if mode != "" {
+				faEnModes[mode] = struct{}{}
+			}
+		case strings.HasPrefix(key, "refine-to-"):
+			style := strings.TrimPrefix(key, "refine-to-")
+			if style != "" {
+				refineStyles[style] = struct{}{}
+			}
+		case strings.HasPrefix(key, "term-for-"):
+			style := strings.TrimPrefix(key, "term-for-")
+			if style != "" {
+				termStyles[style] = struct{}{}
+			}
+		case strings.HasPrefix(key, "compare-"):
+			lang := strings.TrimPrefix(key, "compare-")
+			if lang != "" {
+				compareLangs[lang] = struct{}{}
+			}
+		case key == "simplify-en":
+			hasSimplify = true
+		case key == "symptoms":
+			hasSymptoms = true
+		}
+	}
+
+	ops := make([]OperationOption, 0, 6)
+
+	if len(enFaModes) > 0 || len(faEnModes) > 0 {
+		dirs := make([]DirectionOption, 0, 2)
+		if len(enFaModes) > 0 {
+			dirs = append(dirs, DirectionOption{
+				Value: "en-fa",
+				Label: "English → Persian",
+				Modes: sortedOptions(enFaModes),
+			})
+		}
+		if len(faEnModes) > 0 {
+			dirs = append(dirs, DirectionOption{
+				Value: "fa-en",
+				Label: "Persian → English",
+				Modes: sortedOptions(faEnModes),
+			})
+		}
+		ops = append(ops, OperationOption{
+			Value:      "translate",
+			Label:      "Translate",
+			Directions: dirs,
+		})
+	}
+	if hasSimplify {
+		ops = append(ops, OperationOption{Value: "simplify", Label: "Simplify"})
+	}
+	if len(termStyles) > 0 {
+		ops = append(ops, OperationOption{
+			Value:  "term",
+			Label:  "Term",
+			Styles: sortedOptions(termStyles),
+			Languages: []OptionItem{
+				{Value: "en", Label: "English"},
+				{Value: "fa", Label: "Persian"},
+			},
+		})
+	}
+	if len(refineStyles) > 0 {
+		ops = append(ops, OperationOption{
+			Value:  "refine",
+			Label:  "Refine",
+			Styles: sortedOptions(refineStyles),
+		})
+	}
+	if hasSymptoms {
+		ops = append(ops, OperationOption{Value: "symptoms", Label: "Symptoms"})
+	}
+	if len(compareLangs) > 0 {
+		ops = append(ops, OperationOption{
+			Value:     "compare",
+			Label:     "Compare",
+			Languages: sortedLanguageOptions(compareLangs),
+		})
+	}
+
+	return &TransformOptions{Operations: ops}, nil
+}
+
+func sortedOptions(set map[string]struct{}) []OptionItem {
+	keys := make([]string, 0, len(set))
+	for k := range set {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]OptionItem, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, OptionItem{Value: k, Label: titleFromSlug(k)})
+	}
+	return out
+}
+
+func sortedLanguageOptions(set map[string]struct{}) []OptionItem {
+	keys := make([]string, 0, len(set))
+	for k := range set {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]OptionItem, 0, len(keys))
+	for _, k := range keys {
+		label := titleFromSlug(k)
+		switch k {
+		case "en":
+			label = "English"
+		case "fa":
+			label = "Persian"
+		}
+		out = append(out, OptionItem{Value: k, Label: label})
+	}
+	return out
+}
+
+// --- Create instruction from structured operation fields ---
+
+type CreateInstructionRequest struct {
+	Operation string `json:"operation"`
+	Direction string `json:"direction"`
+	Mode      string `json:"mode"`
+	Style     string `json:"style"`
+	Language  string `json:"language"`
+	Content   string `json:"content"`
+}
+
+func (s *InstructionService) CreateFromOperation(ctx context.Context, req CreateInstructionRequest) (*domain.Instruction, error) {
+	key, err := buildInstructionKey(req)
+	if err != nil {
+		return nil, err
+	}
+
+	content := strings.TrimSpace(req.Content)
+	if content == "" {
+		content = defaultInstructionContent(key)
+	}
+	return s.repo.Upsert(ctx, key, content)
+}
+
+func buildInstructionKey(req CreateInstructionRequest) (string, error) {
+	op := strings.ToLower(strings.TrimSpace(req.Operation))
+	switch op {
+	case "translate":
+		dir := strings.ToLower(strings.TrimSpace(req.Direction))
+		mode := normalizeSlug(req.Mode)
+		if mode == "" {
+			return "", fmt.Errorf("invalid mode: %s", req.Mode)
+		}
+		switch dir {
+		case "en-fa":
+			return "en-to-fa-" + mode, nil
+		case "fa-en":
+			return "fa-to-en-" + mode, nil
+		default:
+			return "", fmt.Errorf("invalid direction: %s", req.Direction)
+		}
+	case "refine":
+		style := normalizeSlug(req.Style)
+		if style == "" {
+			style = normalizeSlug(req.Mode)
+		}
+		if style == "" {
+			return "", fmt.Errorf("invalid style: %s", req.Style)
+		}
+		return "refine-to-" + style, nil
+	case "term":
+		style := normalizeSlug(req.Style)
+		if style == "" {
+			style = normalizeSlug(req.Mode)
+		}
+		if style == "" {
+			return "", fmt.Errorf("invalid style: %s", req.Style)
+		}
+		return "term-for-" + style, nil
+	case "simplify":
+		return "simplify-en", nil
+	case "symptoms":
+		return "symptoms", nil
+	case "compare":
+		lang := strings.ToLower(strings.TrimSpace(req.Language))
+		if lang == "" {
+			lang = normalizeSlug(req.Mode)
+		}
+		if lang != "en" && lang != "fa" {
+			return "", fmt.Errorf("invalid language: %s", req.Language)
+		}
+		return "compare-" + lang, nil
+	default:
+		return "", fmt.Errorf("invalid operation: %s", req.Operation)
+	}
 }
 
 type HistoryService struct {
@@ -231,8 +506,8 @@ func NewHistoryService(repo *repository.HistoryRepository) *HistoryService {
 	return &HistoryService{repo: repo}
 }
 
-func (s *HistoryService) List(ctx context.Context, sortBy, sortOrder string, limit, offset int) ([]domain.HistoryRecord, error) {
-	return s.repo.List(ctx, sortBy, sortOrder, limit, offset)
+func (s *HistoryService) List(ctx context.Context, filter repository.HistoryListFilter) ([]domain.HistoryRecord, error) {
+	return s.repo.List(ctx, filter)
 }
 
 func (s *HistoryService) Get(ctx context.Context, id string) (*domain.HistoryRecord, error) {
