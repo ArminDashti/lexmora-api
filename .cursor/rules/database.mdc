@@ -1,8 +1,16 @@
 ---
-description: Pakhsh SQL Server connection, safety, and query conventions for shared production data
+description: >-
+  Pakhsh SQL Server connection, safety, and query conventions for shared production data
+globs: 
 alwaysApply: true
+metadata:
+  version: 1.0.0
+  author: "Armin Dashti"
+  category: 
+  tags: []
+  last_updated: "2026-08-01 13:03:20"
+  uuid: 0380f7b1-d35f-43d4-9cff-f34f6c5b5697
 ---
-
 # Pakhsh Database
 
 This is a **shared production database**. Other users are active on it at the same time. Keep every query small, fast, and bounded.
