@@ -29,7 +29,7 @@ func Load() (*Config, error) {
 		StaticDir:           os.Getenv("STATIC_DIR"),
 		CorsOrigins:         splitList(getEnv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8082,http://127.0.0.1:8082")),
 		DefaultUsername:     getEnv("DEFAULT_USERNAME", "armin"),
-		DefaultPassword:     getEnv("DEFAULT_PASSWORD", "noshabe"),
+		DefaultPassword:     getEnv("DEFAULT_PASSWORD", "IUpe8SqXxtJrEJxZ"),
 		OpenRouterHTTPProxy: os.Getenv("OPENROUTER_HTTP_PROXY"),
 	}
 

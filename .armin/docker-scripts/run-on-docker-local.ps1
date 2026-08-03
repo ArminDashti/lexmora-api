@@ -21,9 +21,10 @@
   delete_image        yes/true/1/y/on → remove image during teardown
 
   This script sets env vars expected by your `docker-compose.yml`:
-    - API_IMAGE_TAG
+    - IMAGE_TAG
     - DOCKER_NETWORK
-    - API_PUBLISH_PORT (when publish_port is set; uses docker-compose.publish.yml)
+    - INTERNAL_PORT (when set)
+    - PUBLISH_PORT (when publish_port is set; uses docker-compose.publish.yml)
 #>
 
 Set-StrictMode -Version Latest
@@ -67,7 +68,7 @@ CONFIG:
 
 NOTES:
   - No CLI -- flags. Edit run-on-docker-local.yaml instead.
-  - Sets API_IMAGE_TAG, DOCKER_NETWORK, API_PUBLISH_PORT for docker-compose.
+  - Sets IMAGE_TAG, DOCKER_NETWORK, INTERNAL_PORT, PUBLISH_PORT for docker-compose.
 "@ -ForegroundColor Cyan
 }
 
@@ -174,10 +175,7 @@ try {
         throw "publish_port is set but overlay missing: $publishComposePath"
     }
 
-    Write-Step "Stack=$stackName image=$imageTag network=$network publish_port='$publishPort' delete_volume=$deleteVolume delete_image=$deleteImage"
-    if (-not [string]::IsNullOrWhiteSpace($internalPort)) {
-        Write-Step "internal_port provided but unused by this repo's docker-compose.yml: $internalPort"
-    }
+    Write-Step "Stack=$stackName image=$imageTag network=$network publish_port='$publishPort' internal_port='$internalPort' delete_volume=$deleteVolume delete_image=$deleteImage"
 
     Ensure-Docker
     Ensure-Network $network
@@ -200,7 +198,14 @@ try {
 
     if ($deleteImage) {
         Write-Step "Removing local image $imageTag"
-        docker image rm -f $imageTag *> $null
+        $oldEap = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'SilentlyContinue'
+            docker image rm -f $imageTag *> $null
+        }
+        finally {
+            $ErrorActionPreference = $oldEap
+        }
     }
 
     Write-Step "Building image $imageTag"
@@ -208,25 +213,28 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'docker build failed' }
 
     Write-Step 'Starting stack'
-    $oldApiImageTag = $env:API_IMAGE_TAG
+    $oldImageTag = $env:IMAGE_TAG
     $oldDockerNetwork = $env:DOCKER_NETWORK
-    $oldApiPublishPort = $env:API_PUBLISH_PORT
-    $env:API_IMAGE_TAG = $imageTag
+    $oldInternalPort = $env:INTERNAL_PORT
+    $oldPublishPort = $env:PUBLISH_PORT
+    $env:IMAGE_TAG = $imageTag
     $env:DOCKER_NETWORK = $network
+    if (-not [string]::IsNullOrWhiteSpace($internalPort)) { $env:INTERNAL_PORT = $internalPort }
     if ($usePublishOverlay) {
-        $env:API_PUBLISH_PORT = $publishPort
+        $env:PUBLISH_PORT = $publishPort
     }
     else {
-        Remove-Item Env:API_PUBLISH_PORT -ErrorAction SilentlyContinue
+        Remove-Item Env:PUBLISH_PORT -ErrorAction SilentlyContinue
     }
     try {
         docker compose @composeArgs up -d
         if ($LASTEXITCODE -ne 0) { throw 'docker compose up failed' }
     }
     finally {
-        if ($null -ne $oldApiImageTag) { $env:API_IMAGE_TAG = $oldApiImageTag } else { Remove-Item Env:API_IMAGE_TAG -ErrorAction SilentlyContinue }
+        if ($null -ne $oldImageTag) { $env:IMAGE_TAG = $oldImageTag } else { Remove-Item Env:IMAGE_TAG -ErrorAction SilentlyContinue }
         if ($null -ne $oldDockerNetwork) { $env:DOCKER_NETWORK = $oldDockerNetwork } else { Remove-Item Env:DOCKER_NETWORK -ErrorAction SilentlyContinue }
-        if ($null -ne $oldApiPublishPort) { $env:API_PUBLISH_PORT = $oldApiPublishPort } else { Remove-Item Env:API_PUBLISH_PORT -ErrorAction SilentlyContinue }
+        if ($null -ne $oldInternalPort) { $env:INTERNAL_PORT = $oldInternalPort } else { Remove-Item Env:INTERNAL_PORT -ErrorAction SilentlyContinue }
+        if ($null -ne $oldPublishPort) { $env:PUBLISH_PORT = $oldPublishPort } else { Remove-Item Env:PUBLISH_PORT -ErrorAction SilentlyContinue }
     }
 
     Write-Ok 'Deploy complete'

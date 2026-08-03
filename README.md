@@ -52,7 +52,7 @@ Run this API on port 8080, then start the web UI dev server from the `lexmora-we
 | Field    | Value            |
 |----------|------------------|
 | Username | `armin`          |
-| Password | `noshabe` |
+| Password | `IUpe8SqXxtJrEJxZ` |
 
 Override via `DEFAULT_USERNAME` and `DEFAULT_PASSWORD` in `.env` (only used on first boot when no users exist).
 

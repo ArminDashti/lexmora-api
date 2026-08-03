@@ -31,4 +31,4 @@ API: http://localhost:8080
 
 Pair with the web UI dev server from `lexmora-webui` (`npm run dev` on port 5173).
 
-Default login: `armin` / `noshabe`
+Default login: `armin` / `IUpe8SqXxtJrEJxZ`

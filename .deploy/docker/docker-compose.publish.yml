@@ -1,9 +1,0 @@
-# Optional overlay: host port publish (local dev or when api_publish_port is set).
-# Scripts add -f docker-compose.publish.yml only when api_publish_port is non-empty.
-
-services:
-  lexmora-api:
-    ports:
-      - target: 8080
-        published: ${API_PUBLISH_PORT:-8080}
-        protocol: tcp

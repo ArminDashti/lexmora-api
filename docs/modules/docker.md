@@ -45,7 +45,7 @@ Or:
 
 The script builds the image, ensures external `t3-net`, and runs `docker compose up -d`.
 
-**Default login:** `armin` / `noshabe` (compose defaults).
+**Default login:** `armin` / `IUpe8SqXxtJrEJxZ` (compose defaults).
 
 **CORS:** Local compose / `run-on-docker-local.yaml` defaults include Vite (`5173`), Docker web UI (`8082`), and `https://lexmora.xaigrok.ir`. Override `CORS_ORIGINS` for other hostnames.
 

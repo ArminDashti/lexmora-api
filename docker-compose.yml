@@ -22,11 +22,11 @@ services:
     restart: unless-stopped
 
   lexmora-api:
-    # Image is built by run-on-docker-*.ps1 (Dockerfile in this folder, context = repo root).
-    # Host publish is optional via docker-compose.publish.yml (local / explicit publish_port).
+    # Image is built by .armin/docker-scripts/run-on-docker-*.ps1 (context = repo root).
+    # Host publish is optional via docker-compose.publish.yml when publish_port is set.
     # On t3, HAProxy reaches this container as lexmora-api:8080 on t3-net (no host bind).
     # Server overlay docker-compose.openrouter-proxy.yml adds Mullvad HTTP proxy egress.
-    image: ${API_IMAGE_TAG:-lexmora-api:latest}
+    image: ${IMAGE_TAG:-lexmora-api:latest}
     container_name: lexmora-api
     expose:
       - "8080"
@@ -35,8 +35,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-docker-dev-only}
       DATABASE_URL: postgres://translator:translator@lexmora-pgsql:5432/translator?sslmode=disable
       DEFAULT_USERNAME: ${DEFAULT_USERNAME:-armin}
-      DEFAULT_PASSWORD: ${DEFAULT_PASSWORD:-noshabe}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:8082,http://127.0.0.1:8082,https://lexmora.xaigrok.ir}
+      DEFAULT_PASSWORD: ${DEFAULT_PASSWORD:-IUpe8SqXxtJrEJxZ}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:8090,http://127.0.0.1:8090,https://lexmora.xaigrok.ir}
       OPENROUTER_HTTP_PROXY: ${OPENROUTER_HTTP_PROXY:-}
     volumes:
       - lexmora-api-vol:/data

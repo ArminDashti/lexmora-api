@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Build from repo root: docker build -f .deploy/docker/Dockerfile -t lexmora-api:latest .
+# Build from repo root: docker build -f dockerfile -t lexmora-api:latest .
 
 FROM golang:1.22-alpine AS build
 WORKDIR /src

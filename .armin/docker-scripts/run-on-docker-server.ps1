@@ -52,7 +52,7 @@ CONFIG:
 
 NOTES:
   - No CLI -- flags. Change behavior only via YAML.
-  - Sets API_IMAGE_TAG / API_PUBLISH_PORT / DOCKER_NETWORK for this repo's compose.
+  - Sets IMAGE_TAG / PUBLISH_PORT / DOCKER_NETWORK / INTERNAL_PORT for this repo's compose.
   - Empty publish_port = expose-only (HAProxy / Docker DNS); non-empty adds publish overlay.
   - Alias mode uses ~/.ssh/config (no ssh_key field). Optional -p overrides Port.
   - Rejects placeholder ssh values at runtime.
@@ -133,12 +133,12 @@ function Get-RepoRelativePath([string]$AbsolutePath) {
 
 function Build-ComposeEnvPrefix([hashtable]$Cfg, [string]$PublishPort) {
     $pairs = New-Object System.Collections.Generic.List[string]
-    # Always set so empty publish_port clears compose default (${API_PUBLISH_PORT-8080}).
+    # Always set so empty publish_port clears compose default (${PUBLISH_PORT:-8083}).
     $escapedPublish = $PublishPort.Replace("'", "'\\''")
-    [void]$pairs.Add("API_PUBLISH_PORT='$escapedPublish'")
+    [void]$pairs.Add("PUBLISH_PORT='$escapedPublish'")
 
     $mapping = @{
-        image_tag       = 'API_IMAGE_TAG'
+        image_tag       = 'IMAGE_TAG'
         docker_network  = 'DOCKER_NETWORK'
         internal_port   = 'INTERNAL_PORT'
     }
@@ -380,7 +380,7 @@ try {
 
         $tarName = ($imageTag -replace '[:/]', '_') + '.tar'
         # Avoid 8.3 TEMP paths (e.g. AC508~1.DAS) — OpenSSH scp mishandles '~' in local paths.
-        $tarPath = Get-LongFilePath (Join-Path $DeployDir $tarName)
+        $tarPath = Get-LongFilePath (Join-Path ([System.IO.Path]::GetTempPath()) $tarName)
         Write-Step "Saving image to $tarPath"
         docker save -o $tarPath $imageTag
         if ($LASTEXITCODE -ne 0) { throw 'docker save failed' }
@@ -417,7 +417,7 @@ try {
 
     if ($deleteVolume -or $deleteImage) {
         Write-Step 'Remote compose down'
-        Invoke-Remote -Target $target -RemoteCommand "docker compose -p '$stackName' $composeFilesArg --project-directory '$volumeDir' down $downFlags"
+        Invoke-Remote -Target $target -RemoteCommand "docker compose -p '$stackName' $composeFilesArg --project-directory '$volumeDir' down $downFlags >/dev/null 2>&1 || true"
     }
 
     if ($deleteImage) {
