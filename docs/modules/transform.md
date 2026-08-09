@@ -16,9 +16,9 @@ Dropdown options are **not hardcoded** — `GET /transform/options` builds them 
 | term | style (+ optional language) | `term-for-{style}` | Term English / Persian |
 | refine | style | `refine-to-{style}` | Refine |
 | symptoms | — | `symptoms` | Symptoms |
-| compare | language | `compare-{lang}` | Compare English / Persian |
+| compare | language optional (default `en`) | `compare-{lang}` | Compare English / Persian |
 
-New modes/styles are created via `POST /instructions` (Instructions page).
+New modes/styles are created via `POST /instructions`.
 
 ## Dependencies
 
