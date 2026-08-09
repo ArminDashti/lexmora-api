@@ -139,11 +139,10 @@ func (s *TransformService) resolveTransform(ctx context.Context, req TransformRe
 		}
 		if mode == "movie" {
 			movie := strings.TrimSpace(req.MovieName)
-			if movie == "" {
-				return "", "", "", nil, fmt.Errorf("movie name is required for movie mode")
+			if movie != "" {
+				metadata["movie_name"] = movie
+				return historyType, key, fmt.Sprintf("Movie: %s\n\n%s", movie, text), metadata, nil
 			}
-			metadata["movie_name"] = movie
-			return historyType, key, fmt.Sprintf("Movie: %s\n\n%s", movie, text), metadata, nil
 		}
 		return historyType, key, text, metadata, nil
 

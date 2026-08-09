@@ -67,12 +67,12 @@ Only include fields relevant to the selected operation. Modes/styles must exist 
 
 | Operation | Required fields | History type |
 |-----------|-----------------|--------------|
-| `translate` | `text`, `direction`, `mode` (+ `movie_name` if mode is `movie`) | `en_fa` / `fa_en` |
+| `translate` | `text`, `direction`, `mode` (`movie_name` optional when mode is `movie`) | `en_fa` / `fa_en` |
 | `simplify` | `text` | `simplify` |
 | `term` | `text`, `style` (`language` optional) | `term_en` / `term_fa` |
 | `refine` | `text`, `style` | `refine` |
 | `symptoms` | `text` | `symptoms` |
-| `compare` | `text1`, `text2`, `language` | `compare_en` / `compare_fa` |
+| `compare` | `text1`, `text2` (`language` optional; defaults to `en`) | `compare_en` / `compare_fa` |
 
 ### Compare
 
