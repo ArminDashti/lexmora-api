@@ -217,6 +217,25 @@ func (s *TransformService) resolveTransform(ctx context.Context, req TransformRe
 			return "", "", "", nil, fmt.Errorf("invalid compare language: %s", req.Language)
 		}
 
+	case "grammar":
+		lang := strings.ToLower(strings.TrimSpace(req.Language))
+		if lang == "" {
+			lang = "en"
+		}
+		metadata["language"] = lang
+		key := "grammar-" + lang
+		if err := s.requireInstruction(ctx, key); err != nil {
+			return "", "", "", nil, err
+		}
+		switch lang {
+		case "en":
+			return domain.HistoryTypeGrammarEn, key, text, metadata, nil
+		case "fa":
+			return domain.HistoryTypeGrammarFa, key, text, metadata, nil
+		default:
+			return "", "", "", nil, fmt.Errorf("invalid grammar language: %s", req.Language)
+		}
+
 	default:
 		return "", "", "", nil, fmt.Errorf("invalid operation: %s", req.Operation)
 	}
@@ -290,6 +309,7 @@ func (s *TransformService) GetOptions(ctx context.Context) (*TransformOptions, e
 	refineStyles := map[string]struct{}{}
 	termStyles := map[string]struct{}{}
 	compareLangs := map[string]struct{}{}
+	grammarLangs := map[string]struct{}{}
 	hasSimplify := false
 	hasSymptoms := false
 
@@ -320,6 +340,11 @@ func (s *TransformService) GetOptions(ctx context.Context) (*TransformOptions, e
 			lang := strings.TrimPrefix(key, "compare-")
 			if lang != "" {
 				compareLangs[lang] = struct{}{}
+			}
+		case strings.HasPrefix(key, "grammar-"):
+			lang := strings.TrimPrefix(key, "grammar-")
+			if lang != "" {
+				grammarLangs[lang] = struct{}{}
 			}
 		case key == "simplify-en":
 			hasSimplify = true
@@ -383,8 +408,32 @@ func (s *TransformService) GetOptions(ctx context.Context) (*TransformOptions, e
 			Languages: sortedLanguageOptions(compareLangs),
 		})
 	}
+	if len(grammarLangs) > 0 {
+		ops = append(ops, OperationOption{
+			Value:     "grammar",
+			Label:     "Grammar",
+			Languages: sortedLanguageOptions(grammarLangs),
+		})
+	}
+
+	sortOperationsByLabel(ops)
+	for i := range ops {
+		sortDirectionsByLabel(ops[i].Directions)
+	}
 
 	return &TransformOptions{Operations: ops}, nil
+}
+
+func sortOperationsByLabel(ops []OperationOption) {
+	sort.Slice(ops, func(i, j int) bool {
+		return strings.ToLower(ops[i].Label) < strings.ToLower(ops[j].Label)
+	})
+}
+
+func sortDirectionsByLabel(dirs []DirectionOption) {
+	sort.Slice(dirs, func(i, j int) bool {
+		return strings.ToLower(dirs[i].Label) < strings.ToLower(dirs[j].Label)
+	})
 }
 
 func sortedOptions(set map[string]struct{}) []OptionItem {
@@ -492,6 +541,15 @@ func buildInstructionKey(req CreateInstructionRequest) (string, error) {
 			return "", fmt.Errorf("invalid language: %s", req.Language)
 		}
 		return "compare-" + lang, nil
+	case "grammar":
+		lang := strings.ToLower(strings.TrimSpace(req.Language))
+		if lang == "" {
+			lang = "en"
+		}
+		if lang != "en" && lang != "fa" {
+			return "", fmt.Errorf("invalid language: %s", req.Language)
+		}
+		return "grammar-" + lang, nil
 	default:
 		return "", fmt.Errorf("invalid operation: %s", req.Operation)
 	}
@@ -505,8 +563,32 @@ func NewHistoryService(repo *repository.HistoryRepository) *HistoryService {
 	return &HistoryService{repo: repo}
 }
 
-func (s *HistoryService) List(ctx context.Context, filter repository.HistoryListFilter) ([]domain.HistoryRecord, error) {
-	return s.repo.List(ctx, filter)
+func (s *HistoryService) List(ctx context.Context, filter repository.HistoryListFilter) (*domain.HistoryListPage, error) {
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	filter.Limit = limit
+
+	total, err := s.repo.Count(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	items, err := s.repo.List(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.HistoryListPage{
+		Items:  items,
+		Total:  total,
+		Limit:  limit,
+		Offset: filter.Offset,
+	}, nil
 }
 
 func (s *HistoryService) Get(ctx context.Context, id string) (*domain.HistoryRecord, error) {

@@ -16,3 +16,5 @@ dist/
 # END AUTO-MANAGED LARGE FILES
 
 # === auto-managed large files (github-commit-push-all) ===
+
+# github-commit-push-all: auto-ignore large files (>5MB)

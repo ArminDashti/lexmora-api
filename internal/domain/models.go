@@ -38,6 +38,8 @@ const (
 	HistoryTypeSymptoms   HistoryType = "symptoms"
 	HistoryTypeCompareEn  HistoryType = "compare_en"
 	HistoryTypeCompareFa  HistoryType = "compare_fa"
+	HistoryTypeGrammarEn  HistoryType = "grammar_en"
+	HistoryTypeGrammarFa  HistoryType = "grammar_fa"
 )
 
 func (t HistoryType) DisplayName() string {
@@ -60,6 +62,10 @@ func (t HistoryType) DisplayName() string {
 		return "Compare English"
 	case HistoryTypeCompareFa:
 		return "Compare Persian"
+	case HistoryTypeGrammarEn:
+		return "Grammar English"
+	case HistoryTypeGrammarFa:
+		return "Grammar Persian"
 	default:
 		return string(t)
 	}
@@ -86,7 +92,15 @@ type StatsBucket struct {
 	Refine    int `json:"refine"`
 	Symptoms  int `json:"symptoms"`
 	Compare   int `json:"compare"`
+	Grammar   int `json:"grammar"`
 	Total     int `json:"total"`
+}
+
+type HistoryListPage struct {
+	Items  []HistoryRecord `json:"items"`
+	Total  int             `json:"total"`
+	Limit  int             `json:"limit"`
+	Offset int             `json:"offset"`
 }
 
 type StatsResponse struct {
@@ -138,6 +152,8 @@ var InstructionKeys = []string{
 	"term-for-slang",
 	"compare-en",
 	"compare-fa",
+	"grammar-en",
+	"grammar-fa",
 }
 
 func FormatDateTime(t time.Time) string {

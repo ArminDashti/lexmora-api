@@ -80,19 +80,19 @@ func (h *Handler) ListHistory(c *gin.Context) {
 	filter := repository.HistoryListFilter{
 		SortBy:    c.DefaultQuery("sort_by", "datetime"),
 		SortOrder: c.DefaultQuery("sort_order", "desc"),
-		Limit:     queryInt(c, "limit", 100),
+		Limit:     queryInt(c, "limit", 50),
 		Offset:    queryInt(c, "offset", 0),
 		Type:      c.Query("type"),
 		From:      from,
 		To:        to,
 	}
 
-	items, err := h.historyService.List(c.Request.Context(), filter)
+	page, err := h.historyService.List(c.Request.Context(), filter)
 	if err != nil {
 		h.handleError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, items)
+	c.JSON(http.StatusOK, page)
 }
 
 func (h *Handler) GetHistory(c *gin.Context) {

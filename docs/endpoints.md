@@ -8,7 +8,7 @@ All authenticated routes require `Authorization: Bearer <jwt>`.
 | POST | `/api/v1/auth/login` | No | Login with username/password, returns JWT |
 | POST | `/api/v1/transform` | Yes | Run a transform operation |
 | GET | `/api/v1/transform/options` | Yes | Dynamic Operation / Direction / Mode catalog from instruction keys |
-| GET | `/api/v1/history` | Yes | List history (`sort_by`, `sort_order`, `type`, `from`, `to`, `limit`, `offset`) |
+| GET | `/api/v1/history` | Yes | Paginated history (`sort_by`, `sort_order`, `type`, `from`, `to`, `limit` default 50, `offset`) |
 | GET | `/api/v1/history/:id` | Yes | Get single history record |
 | DELETE | `/api/v1/history/:id` | Yes | Delete history record |
 | GET | `/api/v1/stats` | Yes | Request counts by period and type |
@@ -27,6 +27,17 @@ All authenticated routes require `Authorization: Bearer <jwt>`.
 - `type` — exact history type code (`en_fa`, `simplify`, …)
 - `from` / `to` — `YYYY-MM-DD` inclusive calendar days (server local TZ; `to` is end-of-day inclusive)
 
+Response:
+
+```json
+{
+  "items": [ /* HistoryRecord[] */ ],
+  "total": 237,
+  "limit": 50,
+  "offset": 0
+}
+```
+
 ## Transform options — `GET /api/v1/transform/options`
 
 Derived from instruction keys (not hardcoded allow-lists):
@@ -38,6 +49,7 @@ Derived from instruction keys (not hardcoded allow-lists):
 | `refine-to-{style}` | Refine · style |
 | `term-for-{style}` | Term · style |
 | `compare-{lang}` | Compare · language |
+| `grammar-{lang}` | Grammar · language |
 | `simplify-en` | Simplify |
 | `symptoms` | Symptoms |
 
@@ -49,7 +61,7 @@ Create new modes/styles via `POST /instructions`.
 
 ```json
 {
-  "operation": "translate|simplify|term|refine|symptoms|compare",
+  "operation": "translate|simplify|term|refine|symptoms|compare|grammar",
   "text": "...",
   "text1": "...",
   "text2": "...",
@@ -73,6 +85,7 @@ Only include fields relevant to the selected operation. Modes/styles must exist 
 | `refine` | `text`, `style` | `refine` |
 | `symptoms` | `text` | `symptoms` |
 | `compare` | `text1`, `text2` (`language` optional; defaults to `en`) | `compare_en` / `compare_fa` |
+| `grammar` | `text` (`language` optional; defaults to `en`) | `grammar_en` / `grammar_fa` |
 
 ### Compare
 
@@ -107,7 +120,7 @@ Only include fields relevant to the selected operation. Modes/styles must exist 
 
 ### Stats
 
-`StatsBucket` includes: `simplify`, `en_fa`, `fa_en`, `term`, `refine`, `symptoms`, `compare`, `total`.
+`StatsBucket` includes: `simplify`, `en_fa`, `fa_en`, `term`, `refine`, `symptoms`, `compare`, `grammar`, `total`.
 
 ## Settings — models and credits
 

@@ -185,8 +185,37 @@ func (r *HistoryRepository) CountByPeriod(ctx context.Context, since, until *tim
 		}
 		addToBucket(&bucket, row.Type, row.Count)
 	}
-	bucket.Total = bucket.Simplify + bucket.EnFa + bucket.FaEn + bucket.Term + bucket.Refine + bucket.Symptoms + bucket.Compare
+	bucket.Total = bucket.Simplify + bucket.EnFa + bucket.FaEn + bucket.Term + bucket.Refine + bucket.Symptoms + bucket.Compare + bucket.Grammar
 	return bucket, rows.Err()
+}
+
+func (r *HistoryRepository) Count(ctx context.Context, filter HistoryListFilter) (int, error) {
+	where := []string{"1=1"}
+	args := []any{}
+	argN := 1
+
+	if t := strings.TrimSpace(filter.Type); t != "" {
+		where = append(where, fmt.Sprintf("type = $%d", argN))
+		args = append(args, t)
+		argN++
+	}
+	if filter.From != nil {
+		where = append(where, fmt.Sprintf("created_at >= $%d", argN))
+		args = append(args, *filter.From)
+		argN++
+	}
+	if filter.To != nil {
+		where = append(where, fmt.Sprintf("created_at < $%d", argN))
+		args = append(args, *filter.To)
+		argN++
+	}
+
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM history WHERE %s`, strings.Join(where, " AND "))
+	var total int
+	if err := r.pool.QueryRow(ctx, query, args...).Scan(&total); err != nil {
+		return 0, fmt.Errorf("count history: %w", err)
+	}
+	return total, nil
 }
 
 func addToBucket(b *domain.StatsBucket, t domain.HistoryType, count int) {
@@ -205,6 +234,8 @@ func addToBucket(b *domain.StatsBucket, t domain.HistoryType, count int) {
 		b.Symptoms += count
 	case domain.HistoryTypeCompareEn, domain.HistoryTypeCompareFa:
 		b.Compare += count
+	case domain.HistoryTypeGrammarEn, domain.HistoryTypeGrammarFa:
+		b.Grammar += count
 	}
 }
 
