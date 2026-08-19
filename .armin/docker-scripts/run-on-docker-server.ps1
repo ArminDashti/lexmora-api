@@ -4,10 +4,15 @@
 
 .DESCRIPTION
   Remote deploy script for .armin/docker-scripts/run-on-docker-server.yaml.
-  Reads run-on-docker-server.yaml — no CLI -- flags.
+  Reads run-on-docker-server.yaml — no CLI -- flags except optional -Stop.
   Flow when build_image_on is local: build locally → docker save → SCP → remote docker load → sync files → remote compose up -d.
   Flow when build_image_on is server: sync repo to remote → remote docker build → remote compose up -d.
 #>
+[CmdletBinding()]
+param(
+    [switch]$Stop
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -33,6 +38,7 @@ run-on-docker-server.ps1 — remote Docker deploy (YAML-only)
 
 USAGE:
   .\.armin\docker-scripts\run-on-docker-server.ps1
+  .\.armin\docker-scripts\run-on-docker-server.ps1 -Stop
 
 CONFIG:
   Sibling file: run-on-docker-server.yaml
@@ -51,7 +57,8 @@ CONFIG:
   volume_dir          Absolute remote directory for project + compose files
 
 NOTES:
-  - No CLI -- flags. Change behavior only via YAML.
+  - Optional -Stop tears down the remote compose stack (reads YAML only).
+  - No other CLI -- flags. Change behavior only via YAML.
   - Sets IMAGE_TAG / PUBLISH_PORT / DOCKER_NETWORK / INTERNAL_PORT for this repo's compose.
   - Empty publish_port = expose-only (HAProxy / Docker DNS); non-empty adds publish overlay.
   - Alias mode uses ~/.ssh/config (no ssh_key field). Optional -p overrides Port.
@@ -299,7 +306,7 @@ function Copy-DirToRemote {
 }
 
 if ($args.Count -gt 0) {
-    Write-Fail 'This script accepts no CLI arguments. Edit run-on-docker-server.yaml instead.'
+    Write-Fail 'Unknown CLI arguments. Use optional -Stop or edit run-on-docker-server.yaml.'
     Show-Help
     exit 1
 }
@@ -320,17 +327,44 @@ try {
     $sshValue = Require-Key $cfg 'ssh'
     $volumeDir = Require-Key $cfg 'volume_dir'
 
-    if ($buildImageOn -notin @('local', 'server')) {
-        throw "build_image_on must be 'local' or 'server'."
-    }
-    if ($buildImageOn -eq 'local') {
-        Ensure-Docker
-    }
     if (Test-Placeholder $sshValue) {
         throw 'ssh still has placeholders. Fill run-on-docker-server.yaml before server deploy.'
     }
     if (Test-Placeholder $volumeDir) {
         throw 'volume_dir still has placeholders. Fill a real absolute remote path.'
+    }
+
+    $target = Parse-SshTarget -SshValue $sshValue
+
+    if ($Stop) {
+        $composePath = Resolve-DeployPath $composeFileRel
+        $composeFileName = Split-Path -Leaf $composePath
+        $composeDir = Split-Path -Parent $composePath
+        $publishComposeName = 'docker-compose.publish.yml'
+        $publishComposePath = Join-Path $composeDir $publishComposeName
+        $usePublishOverlay = -not [string]::IsNullOrWhiteSpace($publishPort)
+        $openrouterProxyComposeName = 'docker-compose.openrouter-proxy.yml'
+        $openrouterProxyComposePath = Join-Path $composeDir $openrouterProxyComposeName
+        $useOpenrouterProxyOverlay = Test-Path -LiteralPath $openrouterProxyComposePath
+        $composeFilesArg = "-f '$volumeDir/$composeFileName'"
+        if ($usePublishOverlay) { $composeFilesArg += " -f '$volumeDir/$publishComposeName'" }
+        if ($useOpenrouterProxyOverlay) { $composeFilesArg += " -f '$volumeDir/$openrouterProxyComposeName'" }
+        $downFlags = if ($deleteVolume) { '-v' } else { '' }
+        Write-Step "Remote compose down (stack=$stackName)"
+        Invoke-Remote -Target $target -RemoteCommand "docker compose -p '$stackName' $composeFilesArg --project-directory '$volumeDir' down $downFlags >/dev/null 2>&1 || docker compose -p '$stackName' down $downFlags >/dev/null 2>&1 || true"
+        if ($deleteImage) {
+            Write-Step "Removing remote image $imageTag"
+            Invoke-Remote -Target $target -RemoteCommand "docker image rm -f '$imageTag' || true"
+        }
+        Write-Ok "Stack stopped: $stackName on $($target.LogTarget)"
+        exit 0
+    }
+
+    if ($buildImageOn -notin @('local', 'server')) {
+        throw "build_image_on must be 'local' or 'server'."
+    }
+    if ($buildImageOn -eq 'local') {
+        Ensure-Docker
     }
 
     $composePath = Resolve-DeployPath $composeFileRel
